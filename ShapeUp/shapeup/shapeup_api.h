@@ -228,7 +228,7 @@ public:
             m_pdAPI.update(true);
         });
 
-
+/*
         b = new Button(shapeup_win, "reset as current position");
         b->setCallback([this]() {
             if(!m_isInitialized) return;
@@ -240,14 +240,10 @@ public:
                             m_oldConstraintPos = std::dynamic_pointer_cast<PositionConstraintGroup>(cur_con)->getTargetPositions();
                             Positions newTargetPos = m_oldConstraintPos;
                             for (Index i = 0; i < newTargetPos.rows(); i++) {
-                                newTargetPos.row(i) = m_pdAPI.getPositions().row(ind)
+                                newTargetPos.row(i) = m_pdAPI.getPositions().row(ind);
                             }
                             std::dynamic_pointer_cast<PositionConstraintGroup>(cur_con)->setTargetPositions(newTargetPos);
                         }
-                    }
-                    if (countCurrent > countHighest) {
-                        countHighest = countCurrent;
-                        indexHighest = ind;
                     }
                     ind++;
                 }
@@ -255,7 +251,7 @@ public:
         }
         )
 
-        m_reference
+ 
         b = new Button(shapeup_win, "Coordinate Building");
         b->setCallback([this]() {
             if (!m_isInitialized) return;
@@ -267,12 +263,12 @@ public:
             }
             if(m_reference.size() == 3){
                 m_reference[0] = (m_reference[0] - m_reference[1]).normalized();
-                m_reference[2] = (m_reference[2] - m_reference[1]) 
-                std::cout << "Constructing local coordinate done! "
-                            << 
+                m_reference[2] = (m_reference[2] - m_reference[1]);
+                //std::cout << "Constructing local coordinate done! "
+                 //           << 
             }
         });
-
+*/
         b = new Button(shapeup_win, "Cache Selection");
         b->setCallback([this]() {
             if (!m_isInitialized) return;

@@ -1,1 +1,0 @@
-/usr/local/opt/llvm/bin/clang++  -std=c++11 -w -O3 -DNDEBUG -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX10.15.sdk -dynamiclib -Wl,-headerpad_max_install_names -current_version 1.0.0 -o libtetgen.1.0.dylib -install_name @rpath/libtetgen.1.0.dylib CMakeFiles/tetgen.dir/predicates.cpp.o CMakeFiles/tetgen.dir/tetgen.cpp.o 

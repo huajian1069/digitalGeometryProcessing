@@ -200,8 +200,7 @@ public:
 
             // Add a sliderand set defaults
             ConstraintSlider* slider = new ConstraintSlider(panel, m_viewer, m_simulator.getNumVerts(), g);
-
-            // Re-initialize system and update positions once the user lets go of the slider
+             // Re-initialize system and update positions once the user lets go of the slider
             slider->setFinalCallback([this](float v) {
                 bool wasRunning = m_simActive;
                 stop();
@@ -209,6 +208,42 @@ public:
                 update();
                 if (wasRunning) start();
             });
+
+
+            if(g->name == "Angle selection"){
+                AngleConstraintSlider* sliders[5];
+                for(int i=0; i<5; i++){
+                    switch(i){
+                        case 0:
+                            new Label(m_constraint_window, "yaw", "sans-bold");
+                            break;
+                        case 1:
+                            new Label(m_constraint_window, "pitch", "sans-bold");
+                            break;
+                        case 2:
+                            new Label(m_constraint_window, "roll", "sans-bold");
+                            break;
+                        case 3:
+                            new Label(m_constraint_window, "1th", "sans-bold");
+                            break;
+                        case 4:
+                            new Label(m_constraint_window, "2th", "sans-bold");
+                            break;
+                    }
+                    Widget* panel = new Widget(m_constraint_window);
+                    panel->setLayout(new BoxLayout(nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 10));
+                    sliders[i] = new AngleConstraintSlider(panel, m_viewer, m_simulator.getNumVerts(), g, i);
+                    sliders[i]->setFinalCallback([this](float v) {
+                         std::cout << "Safe out4 enter" << std::endl;
+                            bool wasRunning = m_simActive;
+                            stop();
+                            m_simulator.initializeSystem();
+                            update();
+                            if (wasRunning) start();
+                        std::cout << "Safe out4 exit" << std::endl;
+                    });
+                }
+            }
         }
 
         Button* b = new Button(m_constraint_window, "Update");

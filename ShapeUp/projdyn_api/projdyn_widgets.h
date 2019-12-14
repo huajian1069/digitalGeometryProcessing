@@ -78,6 +78,7 @@ public:
             m_entered = false;
             m_viewer->updateVertexStatus(m_storedStatus);
         }
+        std::cout << "Safe out3 exit other" << std::endl;
         return mEnabled;
     }
 
@@ -88,4 +89,88 @@ private:
     ProjDyn::Index m_numVerts;
     Eigen::RowVectorXi m_storedStatus;
     TextBox* m_textBox;
+};
+
+
+
+class AngleConstraintSlider : public Slider {
+public:
+    AngleConstraintSlider(Widget* parent, Viewer* viewer, ProjDyn::Index numVerts, ProjDyn::ConstraintGroupPtr constraint, int i)
+        : Slider(parent) {
+        m_constraint = constraint;
+        m_viewer = viewer;
+        m_numVerts = numVerts;
+        m_index = i;
+        if (constraint->weight > 0) {
+            setValue(std::log(constraint->weight) / std::log(10000) + 1);
+        }
+        else {
+            setValue(0);
+        }
+        setRange(std::pair<float, float>(0, 3.14));
+        setFixedWidth(80);
+
+        // Add a textbox and set defaults
+        m_textBox = new TextBox(parent);
+        m_textBox->setFixedSize(Vector2i(80, 25));
+        m_textBox->setValue(ProjDyn::floatToString(value()));
+
+        setCallback([this](float v) {
+            m_textBox->setValue(ProjDyn::floatToString(v));
+            //std::shared_ptr<ProjDyn::BaseAngleConstraint> foo = 
+            //std::dynamic_pointer_cast<ProjDyn::BaseAngleConstraint>();
+            std::cout << "index = " << m_index << std::endl;
+            m_constraint->constraints[0]-> set_angle_target(m_index, (ProjDyn::Scalar)v);
+            std::cout << "Safe out1" << std::endl;
+        });
+    }
+
+    virtual bool mouseEnterEvent(const Vector2i& p, bool enter) override {
+        if (enter) {
+            m_entered = true;
+            m_storedStatus = m_viewer->getVertexStatus();
+            Eigen::RowVectorXi tempStatus;
+            tempStatus.setZero(m_numVerts);
+            for (auto c : m_constraint->constraints) {
+                for (ProjDyn::Index ind : c->getIndices()) {
+                    if (ind < m_numVerts) tempStatus(0, ind) = 1;
+                }
+            }
+            m_viewer->updateVertexStatus(tempStatus);
+            return true;
+        }
+        else if (m_entered) {
+            m_entered = false;
+            m_viewer->updateVertexStatus(m_storedStatus);
+        }
+         std::cout << "Safe out2" << std::endl;
+        return false;
+    }
+
+    // This needs to be overridden since the event of leaving the area of the slider with the mouse
+    // while clicking does not trigger the mouseEnterEvent, i.e. the vertex status is never
+    // restored
+    virtual bool mouseButtonEvent(const Vector2i& p, int button, bool down, int modifiers) override
+    {
+        std::cout << "Safe out3 enter" << std::endl;
+        /*Slider::mouseButtonEvent(p, button, down, modifiers);
+        // When releasing the button and we "entered" this constraint before, restore the original
+        // vertex status.
+        if (!down && m_entered) {
+            m_entered = false;
+            m_viewer->updateVertexStatus(m_storedStatus);
+        }*/
+         std::cout << "Safe out3 exit" << std::endl;
+        return mEnabled;
+    }
+
+private:
+    bool m_entered = false;
+    int m_index;
+    ProjDyn::ConstraintGroupPtr m_constraint;
+    Viewer* m_viewer;
+    ProjDyn::Index m_numVerts;
+    Eigen::RowVectorXi m_storedStatus;
+    TextBox* m_textBox;
+
 };

@@ -336,6 +336,13 @@ public:
             popupBtn->setPushed(false);
         });
 
+        b = new Button(popup, "Spider");
+        b->setCallback([this, popupBtn]() {
+            loadMesh("../data/spider.obj");
+            popupBtn->setPushed(false);
+        });
+
+
         b = new Button(popup, "Open from disk");
         b->setCallback([this, popupBtn] {
             std::string load_file = file_dialog(

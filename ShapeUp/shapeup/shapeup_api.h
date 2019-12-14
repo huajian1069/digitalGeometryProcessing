@@ -18,8 +18,8 @@
 #include <nanogui/layout.h>
 #include <nanogui/button.h>
 
-#define THETA_MIN 0.5
-#define THETA_MAX 1.5
+#define THETA_SCOPE 0.1
+#define THETA_TARGET 1.5
 
 using namespace ProjDyn;
 
@@ -273,7 +273,7 @@ public:
         b->setCallback([this]() {
             if (!m_isInitialized) return;
             const std::vector<Index>& selVerts = m_viewer->getSelectedVertices();
-            if (selVerts.size() != 1) return;
+            if (selVerts.size() != 1 ) return;
             if(m_sortedIndex.size() > 0){
                 double length = (m_pdAPI.getPositions().row(selVerts[0]) - m_pdAPI.getPositions().row(m_sortedIndex.back())).norm();
                 m_original_edge_length.push_back(length);
@@ -285,9 +285,37 @@ public:
         b = new Button(shapeup_win, "Cache Display");
         b->setCallback([this]() {
             auto& position = m_pdAPI.getPositions();
-            std::cout << "theta_max = " << THETA_MAX << " theta_min = " << THETA_MIN << std::endl;
-            std::cout << 0 << ")\n" << (position.row(m_sortedIndex[0]) - 
-            position.row(m_sortedIndex[1])).norm() / m_original_edge_length[0] << std::endl;      
+            std::cout << "theta_scope: " << THETA_SCOPE << " theta_target: " << THETA_TARGET << std::endl;
+            ProjDyn::Vector3 m_x_initial, m_y_initial, m_z_initial;
+            ProjDyn::Vector3 y_after_2rot, z_after_2rot;
+            ProjDyn::Scalar yaw, pitch, roll;
+            m_x_initial << -1, 0, 0;
+            m_y_initial << 0, 0, 1;
+            m_z_initial << 0, 1, 0;
+
+            ProjDyn::Vector3 left = position.row(m_sortedIndex[1]) - position.row(m_sortedIndex[0]);
+            ProjDyn::Vector3 right = position.row(m_sortedIndex[2]) - position.row(m_sortedIndex[1]);
+            ProjDyn::Vector3 y_normal = right.cross(-left).normalized();
+            if(right.dot(-left) < 0)
+                y_normal *= -1;
+
+            ProjDyn::Vector3 projected = (left - left.dot(m_z_initial) * m_z_initial).normalized();
+            yaw = std::acos(projected.dot(m_x_initial));
+            if(projected.dot(m_y_initial) < 0)
+                yaw *= -1;
+            // pitch
+            pitch = PI_F / 2 - std::acos(m_z_initial.dot(left.normalized()));;
+            // roll
+            y_after_2rot = m_z_initial.cross(projected);
+            z_after_2rot = left.normalized().cross(y_after_2rot);
+            roll = std::acos(y_normal.dot(y_after_2rot));
+            if(y_normal.dot(z_after_2rot) < 0)
+                roll *= -1;
+
+            std::cout << " yaw: " << yaw << " pitch: " << pitch << " roll: " << roll << "\n";
+            if(m_sortedIndex.size() > 1)
+                std::cout << "0)length_ratio: " << (position.row(m_sortedIndex[0]) - 
+                    position.row(m_sortedIndex[1])).norm() / m_original_edge_length[0] << std::endl;      
             for(int i=1; i<m_sortedIndex.size()-1; i++){
                 double length = (position.row(m_sortedIndex[i]) - position.row(m_sortedIndex[i+1])).norm();
                 double cos = (position.row(m_sortedIndex[i+1]) - position.row(m_sortedIndex[i])).normalized()
@@ -343,15 +371,23 @@ public:
             m_usedShapeConstraint = false;
         });
 
-        b = new Button(shapeup_win, "Add angle constraints to selection");
+        b = new Button(shapeup_win, "Add BaseAngle constraints to selection(right)");
         b->setCallback([this]() {
             if (!m_isInitialized) return;
-            addAngleConstraintsSelection(1.);
+            addBaseAngleConstraintsSelection(1., true);
             m_pdAPI.update(true);
             m_viewer->clearSelection();
             m_usedShapeConstraint = false;
         });
 
+        b = new Button(shapeup_win, "Add angle constraints to selection(left)");
+        b->setCallback([this]() {
+            if (!m_isInitialized) return;
+            addBaseAngleConstraintsSelection(1., false);
+            m_pdAPI.update(true);
+            m_viewer->clearSelection();
+            m_usedShapeConstraint = false;
+        });
 
         m_pdAPI.initConstraintsGUI();
 
@@ -384,7 +420,32 @@ public:
         m_pdAPI.addConstraints(std::make_shared<ProjDyn::ConstraintGroup>("Edge Springs selection", spring_constraints, weight));
     }
 
-
+    void addBaseAngleConstraintsSelection(ProjDyn::Scalar weight, bool right_side) {
+        Surface_mesh* smesh = m_viewer->getMesh();
+        std::vector<ProjDyn::ConstraintPtr> angle_constraints;
+        const auto& selVerts = m_sortedIndex;
+        // The weight is set to the edge length
+        ProjDyn::Scalar w = 1;
+        std::vector<Index> edge_inds;
+        edge_inds.push_back(selVerts[0]);
+        edge_inds.push_back(selVerts[1]);
+        edge_inds.push_back(selVerts[2]);
+        edge_inds.push_back(selVerts[3]);
+        std::vector<ProjDyn::Scalar> theta_target;
+        theta_target.push_back(0.0);
+        theta_target.push_back(0.0);
+        theta_target.push_back(0.0);
+        theta_target.push_back(0.0);
+        theta_target.push_back(0.0);
+        ProjDyn::BaseAngleConstraint* esc = new ProjDyn::BaseAngleConstraint(edge_inds, w, m_initialPositions, right_side, 
+            theta_target, THETA_SCOPE);
+        esc -> set_angle_target(0, 1);
+        esc -> set_angle_target(1, 1.5);
+        esc -> set_angle_target(2, 1);
+        angle_constraints.push_back(std::shared_ptr<ProjDyn::BaseAngleConstraint>(esc));
+        m_pdAPI.addConstraints(std::make_shared<ProjDyn::ConstraintGroup>("Angle selection", angle_constraints, weight));
+    }
+/*
     void addAngleConstraintsSelection(ProjDyn::Scalar weight) {
         Surface_mesh* smesh = m_viewer->getMesh();
         std::vector<ProjDyn::ConstraintPtr> angle_constraints;
@@ -397,7 +458,7 @@ public:
             edge_inds.push_back(selVerts[i+1]);
             edge_inds.push_back(selVerts[i+2]);
             ProjDyn::AngleConstraint* esc = new ProjDyn::AngleConstraint(edge_inds, w, m_initialPositions, 
-                new std::vector<Index>(selVerts.begin(), selVerts.begin() + 3), THETA_MAX ,THETA_MIN);
+            new std::vector<Index>(selVerts.begin(), selVerts.begin() + 3), THETA_TARGET, THETA_SCOPE);
             angle_constraints.push_back(std::shared_ptr<ProjDyn::AngleConstraint>(esc));
         }
         m_pdAPI.addConstraints(std::make_shared<ProjDyn::ConstraintGroup>("Angle selection", angle_constraints, weight));
@@ -405,7 +466,7 @@ public:
 
 
 
-
+*/
     // Here, a flatness or smoothness constraint is added to the vertices
     // that have been selected in the viewer.
     // You can examine this method to understand how constraints can be created

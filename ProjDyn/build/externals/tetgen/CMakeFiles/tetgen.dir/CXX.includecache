@@ -1,0 +1,42 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/huajian/Geo3D/project/ProjDyn/externals/tetgen/predicates.cpp
+stdio.h
+-
+stdlib.h
+-
+math.h
+-
+float.h
+-
+fpu_control.h
+-
+tetgen.h
+/Users/huajian/Geo3D/project/ProjDyn/externals/tetgen/tetgen.h
+CGAL/Exact_predicates_inexact_constructions_kernel.h
+-
+
+/Users/huajian/Geo3D/project/ProjDyn/externals/tetgen/tetgen.cpp
+tetgen.h
+/Users/huajian/Geo3D/project/ProjDyn/externals/tetgen/tetgen.h
+
+/Users/huajian/Geo3D/project/ProjDyn/externals/tetgen/tetgen.h
+stdio.h
+-
+stdlib.h
+-
+string.h
+-
+math.h
+-
+time.h
+-
+stdint.h
+-
+

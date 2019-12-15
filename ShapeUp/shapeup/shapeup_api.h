@@ -275,6 +275,12 @@ public:
         b->setCallback([this]() {
             if (!m_isInitialized) return;
             const std::vector<Index>& selVerts = m_viewer->getSelectedVertices();
+            if(m_avgPosition.size() == 4){
+                m_avgPosition.clear();
+                m_sortedIndex.clear();
+                m_original_edge_length.clear();
+                m_groupNum.clear();
+            }
             ProjDyn::Vector3 avg;
             avg << 0.0, 0.0, 0.0;
             for(Index vertices : selVerts){
@@ -315,7 +321,7 @@ public:
             updateGroupAvgPosition();
             for(int i=0; i<4; i++){
                 std::cout << m_avgPosition[i].transpose() << std::endl;
-                std::cout << i << "  " << m_groupNum[i] << std::endl;
+                std::cout << i << "th index " << m_sortedIndex[i] << std::endl;
             }
             std::cout << "theta_scope: " << THETA_SCOPE << " theta_target: " << THETA_TARGET << std::endl;
             ProjDyn::Vector3 m_x_initial, m_y_initial, m_z_initial;
@@ -472,7 +478,7 @@ public:
 
     void addBaseAngleConstraintsSelection(ProjDyn::Scalar weight, bool right_side) {
         Surface_mesh* smesh = m_viewer->getMesh();
-        std::vector<ProjDyn::ConstraintPtr> angle_constraints;
+        static std::vector<ProjDyn::ConstraintPtr> angle_constraints;
         // The weight is set to the edge length
         ProjDyn::Scalar w = 1;
         std::vector<ProjDyn::Scalar> theta_target;
@@ -487,7 +493,11 @@ public:
         //esc -> set_angle_target(1, 1.5);
         //esc -> set_angle_target(2, 1);
         angle_constraints.push_back(std::shared_ptr<ProjDyn::BaseAngleConstraint>(esc));
-        m_pdAPI.addConstraints(std::make_shared<ProjDyn::ConstraintGroup>("Angle selection", angle_constraints, weight));
+        std::cout << angle_constraints.size() << " legs has been added " << std::endl;
+        if(angle_constraints.size() == 8){
+            m_pdAPI.addConstraints(std::make_shared<ProjDyn::ConstraintGroup>("Angle selection", angle_constraints, weight));
+            std::cout << " Done !" << std::endl;
+        }
     }
 /*
     void addAngleConstraintsSelection(ProjDyn::Scalar weight) {

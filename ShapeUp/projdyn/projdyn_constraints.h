@@ -186,7 +186,7 @@ namespace ProjDyn {
             ProjDyn::Vector3 right_final, right;
             Scalar yaw, pitch, roll;
             //build normal vector of first joint plane
-            //updateGroupAvgPosition(positions);
+            updateGroupAvgPosition(positions);
             extract3DoFanlges(yaw, pitch, roll);
             std::cout << " yaw: " << yaw << " pitch: " << pitch << " roll: " << roll << "\n";
             std::cout << " yaw_target: " << m_yaw_target << " pitch_target: " 
@@ -270,7 +270,7 @@ namespace ProjDyn {
             ProjDyn::Vector3 projected = (right - right.dot(y_normal) * y_normal).normalized();
 
             Scalar theta_x = std::acos(right.normalized().dot(x_inplane));
-            if(right.dot(y_inplane) < 0)
+            if(projected.dot(y_inplane) < 0)
                 theta_x *= -1; 
             return theta_x;
         }

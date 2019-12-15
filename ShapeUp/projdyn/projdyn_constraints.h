@@ -133,8 +133,6 @@ namespace ProjDyn {
 
         /** Location of this constraint in the linear system. */
         Index m_constraint_id = 0;
-        std::vector<ProjDyn::Scalar> m_theta_target;
-        Scalar m_yaw_target, m_pitch_target, m_roll_target;
     };
 
 
@@ -143,7 +141,7 @@ namespace ProjDyn {
 
     class BaseAngleConstraint : public Constraint {
     public:
-        BaseAngleConstraint(const std::vector<Index>& edge_vertices, Scalar weight,
+        BaseAngleConstraint(const std::vector<Index>& edge_vertices,std::vector<int> groupNum, Scalar weight,
             const Positions& positions, bool right_side, 
             std::vector<ProjDyn::Scalar> theta_target, Scalar theta_scope = 0.2)
             :
@@ -151,17 +149,18 @@ namespace ProjDyn {
         {
             // Make sure there are at most two vertices in the edge
             assert(m_vertex_indices.size() == 3);
-            //positions = positions;
             ProjDyn::Vector3 left, right, y_normal;
-
             m_theta_scope = theta_scope;
+            m_groupNum = groupNum;
+            m_avgPosition.reserve(4);
+            updateGroupAvgPosition(positions);
 
             buildGlobalCoordinate(right_side);
 
-            buildLocalCoordinate(left, right, y_normal, positions);
+            buildLocalCoordinate(left, right, y_normal);
             m_length.push_back(left.norm());
 
-            extract3DoFanlges(m_yaw_target, m_pitch_target, m_roll_target, positions);
+            extract3DoFanlges(m_yaw_target, m_pitch_target, m_roll_target);
             //m_yaw_target -= 0.5;
             //m_pitch_target -= 0.5;
             //m_roll_target -= 0.5;
@@ -170,10 +169,10 @@ namespace ProjDyn {
 
             for(int i = 0; i < theta_target.size()-3; i++){
  
-                m_theta_target.push_back(extract1DoFanlges(i, positions)-0.7);
+                m_theta_target.push_back(extract1DoFanlges(i));
                 std::cout << i+4 << "th angle target: " << m_theta_target[i] << std::endl;
                 // Compute rest edge length
-                m_length.push_back((positions.row(m_vertex_indices[i+2]) - positions.row(m_vertex_indices[i+1])).norm());
+                m_length.push_back((m_avgPosition[i+2] - m_avgPosition[i+1]).norm());
             }
         }
 
@@ -187,8 +186,8 @@ namespace ProjDyn {
             ProjDyn::Vector3 right_final, right;
             Scalar yaw, pitch, roll;
             //build normal vector of first joint plane
-
-            extract3DoFanlges(yaw, pitch, roll, positions);
+            //updateGroupAvgPosition(positions);
+            extract3DoFanlges(yaw, pitch, roll);
             std::cout << " yaw: " << yaw << " pitch: " << pitch << " roll: " << roll << "\n";
             std::cout << " yaw_target: " << m_yaw_target << " pitch_target: " 
                     << m_pitch_target << " roll_target: " << m_roll_target << "\n";
@@ -203,7 +202,7 @@ namespace ProjDyn {
             z_after_2rot = left_final.cross(y_after_2rot);
             ProjDyn::Vector3 y_normal_final = ensureAroundTarget(roll, m_roll_target, y_after_2rot, z_after_2rot, "roll");
 
-            Scalar theta_x = extract1DoFanlges(0, positions);
+            Scalar theta_x = extract1DoFanlges(0);
             std::cout << "1th angle: " << theta_x << "\n";
             std::cout << "1th angle target: " << m_theta_target[0] << "\n";
             y_inplane = -left_final.cross(y_normal_final);
@@ -213,7 +212,7 @@ namespace ProjDyn {
             x_inplane = -right_final;
             y_inplane = x_inplane.cross(y_normal_final);
             for(int i = 1; i < m_theta_target.size(); i++){
-                Scalar theta_x = extract1DoFanlges(i, positions);
+                Scalar theta_x = extract1DoFanlges(i);
                 std::cout << "2th angle: " << theta_x << "\n";
                 std::cout << "2th angle target: " << m_theta_target[1] << "\n";
                 right_final = ensureAroundTarget(theta_x, m_theta_target[i], x_inplane, y_inplane, "2th");
@@ -225,12 +224,10 @@ namespace ProjDyn {
         }
 
         virtual void set_angle_target(int index, Scalar angle) override{
-            std::cout << "what's up index= " << index << std::endl;
             assert(index >= 0 && index < 5);
             switch (index){
                 case 0:
                     m_yaw_target = angle;
-                    std::cout << "yaw!!!\n";
                     break;
                 case 1:
                     m_pitch_target = angle;
@@ -241,7 +238,6 @@ namespace ProjDyn {
                 default:
                     m_theta_target[index-3] = angle;
             }
-            std::cout << "Not my fault" << std::endl;
         }
 
          void buildGlobalCoordinate(bool right_side){
@@ -255,22 +251,22 @@ namespace ProjDyn {
             }
         }
 
-        void buildLocalCoordinate(ProjDyn::Vector3 &left, ProjDyn::Vector3 &right, ProjDyn::Vector3 &y_normal, const Positions& positions){
-            left = positions.row(m_vertex_indices[1]) - positions.row(m_vertex_indices[0]);
-            right = positions.row(m_vertex_indices[2]) - positions.row(m_vertex_indices[1]);
+        void buildLocalCoordinate(ProjDyn::Vector3 &left, ProjDyn::Vector3 &right, ProjDyn::Vector3 &y_normal){
+            left = m_avgPosition[1] - m_avgPosition[0];
+            right = m_avgPosition[2] - m_avgPosition[1];
             y_normal = right.cross(-left).normalized();
             if(right.dot(-left) < 0)
                 y_normal *= -1;
         }
 
-        Scalar extract1DoFanlges(int i, const Positions& positions){
+        Scalar extract1DoFanlges(int i){
             ProjDyn::Vector3 z_normal, x_inplane, y_inplane, y_normal, left, _;
-            buildLocalCoordinate(left, _, y_normal, positions);
+            buildLocalCoordinate(left, _, y_normal);
 
-            x_inplane = (positions.row(m_vertex_indices[i]) - positions.row(m_vertex_indices[i+1])).normalized();
+            x_inplane = (m_avgPosition[i] - m_avgPosition[i+1]).normalized();
             y_inplane = -y_normal.cross(x_inplane);
             // Compute the normal projection and normalize length to 1
-            ProjDyn::Vector3 right = (positions.row(m_vertex_indices[i+2]) - positions.row(m_vertex_indices[i+1]));
+            ProjDyn::Vector3 right = (m_avgPosition[i+2] - m_avgPosition[i+1]);
             ProjDyn::Vector3 projected = (right - right.dot(y_normal) * y_normal).normalized();
 
             Scalar theta_x = std::acos(right.normalized().dot(x_inplane));
@@ -279,10 +275,10 @@ namespace ProjDyn {
             return theta_x;
         }
 
-        void extract3DoFanlges(Scalar &yaw, Scalar &pitch, Scalar &roll, const Positions& positions){
+        void extract3DoFanlges(Scalar &yaw, Scalar &pitch, Scalar &roll){
             ProjDyn::Vector3 y_after_2rot, z_after_2rot;
             ProjDyn::Vector3 left, right, y_normal;
-            buildLocalCoordinate(left, right, y_normal, positions);
+            buildLocalCoordinate(left, right, y_normal);
             // yaw
             ProjDyn::Vector3 projected = (left - left.dot(m_z_initial) * m_z_initial).normalized();
             yaw = std::acos(projected.dot(m_x_initial));
@@ -318,18 +314,39 @@ namespace ProjDyn {
             return adjusted;
         }
 
+        void updateGroupAvgPosition(const Positions& positions){
+            int num, lower;
+            ProjDyn::Vector3 sum;
+            for(int i=0; i<4; i++){
+                sum << 0.0, 0.0, 0.0;
+                if(i == 0) {
+                    num = m_groupNum[0];
+                    lower = 0;
+                }
+                else {
+                    num = (m_groupNum[i] - m_groupNum[i-1]);
+                    lower = m_groupNum[i-1];
+                }
+                for(int j = lower; j < m_groupNum[i]; j++){
+                    sum += positions.row(m_vertex_indices[j]);
+                }
+                m_avgPosition[i] = sum / num;
+            }
+        }
+
         virtual Index getNumConstraintRows() override { return 3; };
 
         virtual ConstraintPtr copy() {
             return std::make_shared<BaseAngleConstraint>(*this);
         }
     protected:
-        std::vector<Index> m_ref_vertices;
         Scalar m_theta_scope;
         std::vector<ProjDyn::Scalar> m_theta_target;
         Scalar m_yaw_target, m_pitch_target, m_roll_target;
         std::vector<Scalar> m_length;
         ProjDyn::Vector3 m_x_initial, m_y_initial, m_z_initial;
+        std::vector<ProjDyn::Vector3> m_avgPosition;
+        std::vector<int> m_groupNum;
         virtual std::vector<Triplet> getTriplets(Index currentRow) override {
             std::vector<Triplet> triplets;
             // The current edge is computed as v_k - v_j, where j/k are the
@@ -338,14 +355,25 @@ namespace ProjDyn {
             // A_ij = -1, A_ik = 1 and A_il = 0 for l =/= j,k
             // A_i v_x/y/z = e_x/y/z
             // Thus:
-            triplets.push_back(Triplet(currentRow, m_vertex_indices[1], 1));
-            triplets.push_back(Triplet(currentRow, m_vertex_indices[0], -1));
-            triplets.push_back(Triplet(currentRow + 1, m_vertex_indices[2], 1));
-            triplets.push_back(Triplet(currentRow + 1, m_vertex_indices[1], -1));
-            for(int i = 1; i < m_theta_target.size(); i++){
-                triplets.push_back(Triplet(currentRow + 1 + i, m_vertex_indices[2+i], 1));
-                triplets.push_back(Triplet(currentRow + 1 + i, m_vertex_indices[1+i], -1));
+            float num = 1 / m_groupNum[0];
+            for(int i = 0; i < m_groupNum[0]; i++){
+                triplets.push_back(Triplet(currentRow, m_vertex_indices[i], -num));
             }
+            num = 1 / (m_groupNum[1] - m_groupNum[0]);
+            for(int i = m_groupNum[0]; i < m_groupNum[1]; i++){
+                triplets.push_back(Triplet(currentRow, m_vertex_indices[i], num));
+                triplets.push_back(Triplet(currentRow + 1, m_vertex_indices[i], -num));
+            }
+            num = 1 / (m_groupNum[2] - m_groupNum[1]);
+            for(int i = m_groupNum[1]; i < m_groupNum[2]; i++){
+                triplets.push_back(Triplet(currentRow + 1, m_vertex_indices[i], num));
+                triplets.push_back(Triplet(currentRow + 2, m_vertex_indices[i], -num));
+            }
+            num = 1 / (m_groupNum[3] - m_groupNum[2]);
+            for(int i = m_groupNum[2]; i < m_groupNum[3]; i++){
+                triplets.push_back(Triplet(currentRow + 2, m_vertex_indices[i], num));
+            }
+
             return triplets;
         }
     };

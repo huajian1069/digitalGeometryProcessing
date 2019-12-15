@@ -78,7 +78,6 @@ public:
             m_entered = false;
             m_viewer->updateVertexStatus(m_storedStatus);
         }
-        std::cout << "Safe out3 exit other" << std::endl;
         return mEnabled;
     }
 
@@ -119,9 +118,7 @@ public:
             m_textBox->setValue(ProjDyn::floatToString(v));
             //std::shared_ptr<ProjDyn::BaseAngleConstraint> foo = 
             //std::dynamic_pointer_cast<ProjDyn::BaseAngleConstraint>();
-            std::cout << "index = " << m_index << std::endl;
             m_constraint->constraints[0]-> set_angle_target(m_index, (ProjDyn::Scalar)v);
-            std::cout << "Safe out1" << std::endl;
         });
     }
 
@@ -143,7 +140,6 @@ public:
             m_entered = false;
             m_viewer->updateVertexStatus(m_storedStatus);
         }
-         std::cout << "Safe out2" << std::endl;
         return false;
     }
 
@@ -152,15 +148,13 @@ public:
     // restored
     virtual bool mouseButtonEvent(const Vector2i& p, int button, bool down, int modifiers) override
     {
-        std::cout << "Safe out3 enter" << std::endl;
-        /*Slider::mouseButtonEvent(p, button, down, modifiers);
+        Slider::mouseButtonEvent(p, button, down, modifiers);
         // When releasing the button and we "entered" this constraint before, restore the original
         // vertex status.
         if (!down && m_entered) {
             m_entered = false;
             m_viewer->updateVertexStatus(m_storedStatus);
-        }*/
-         std::cout << "Safe out3 exit" << std::endl;
+        }
         return mEnabled;
     }
 

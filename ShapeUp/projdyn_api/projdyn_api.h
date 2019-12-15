@@ -234,13 +234,11 @@ public:
                     panel->setLayout(new BoxLayout(nanogui::Orientation::Horizontal, nanogui::Alignment::Middle, 0, 10));
                     sliders[i] = new AngleConstraintSlider(panel, m_viewer, m_simulator.getNumVerts(), g, i);
                     sliders[i]->setFinalCallback([this](float v) {
-                         std::cout << "Safe out4 enter" << std::endl;
                             bool wasRunning = m_simActive;
                             stop();
                             m_simulator.initializeSystem();
                             update();
                             if (wasRunning) start();
-                        std::cout << "Safe out4 exit" << std::endl;
                     });
                 }
             }

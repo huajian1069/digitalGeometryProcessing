@@ -268,7 +268,33 @@ public:
                  //           << 
             }
         });
-*/
+
+        */
+
+        b = new Button(shapeup_win, "Cache Group Selection");
+        b->setCallback([this]() {
+            if (!m_isInitialized) return;
+            const std::vector<Index>& selVerts = m_viewer->getSelectedVertices();
+            ProjDyn::Vector3 avg;
+            avg << 0.0, 0.0, 0.0;
+            for(Index vertices : selVerts){
+                m_sortedIndex.push_back(vertices);
+                avg += m_pdAPI.getPositions().row(vertices);
+            }
+            avg /= selVerts.size();
+            if(m_avgPosition.size() > 0){
+                double length = (avg - m_avgPosition.back()).norm();
+                m_original_edge_length.push_back(length);
+            }
+            m_avgPosition.push_back(avg);
+            m_groupNum.push_back(selVerts.size());
+            if(m_avgPosition.size() == 4){
+                for(int i=1; i<m_groupNum.size(); i++)
+                    m_groupNum[i] += m_groupNum[i-1]; 
+            }
+            std::cout << m_groupNum.size() <<"th group of "<< selVerts.size() << " points added" << std::endl;
+        });
+        /*
         b = new Button(shapeup_win, "Cache Selection");
         b->setCallback([this]() {
             if (!m_isInitialized) return;
@@ -281,10 +307,16 @@ public:
             m_sortedIndex.push_back(selVerts[0]);
             std::cout << m_sortedIndex.size() <<"th point added" << std::endl;
         });
+*/
 
         b = new Button(shapeup_win, "Cache Display");
         b->setCallback([this]() {
-            auto& position = m_pdAPI.getPositions();
+            m_avgPosition.reserve(4);
+            updateGroupAvgPosition();
+            for(int i=0; i<4; i++){
+                std::cout << m_avgPosition[i].transpose() << std::endl;
+                std::cout << i << "  " << m_groupNum[i] << std::endl;
+            }
             std::cout << "theta_scope: " << THETA_SCOPE << " theta_target: " << THETA_TARGET << std::endl;
             ProjDyn::Vector3 m_x_initial, m_y_initial, m_z_initial;
             ProjDyn::Vector3 y_after_2rot, z_after_2rot;
@@ -293,8 +325,8 @@ public:
             m_y_initial << 0, 0, 1;
             m_z_initial << 0, 1, 0;
 
-            ProjDyn::Vector3 left = position.row(m_sortedIndex[1]) - position.row(m_sortedIndex[0]);
-            ProjDyn::Vector3 right = position.row(m_sortedIndex[2]) - position.row(m_sortedIndex[1]);
+            ProjDyn::Vector3 left = m_avgPosition[1] - m_avgPosition[0];
+            ProjDyn::Vector3 right = m_avgPosition[2] - m_avgPosition[1];
             ProjDyn::Vector3 y_normal = right.cross(-left).normalized();
             if(right.dot(-left) < 0)
                 y_normal *= -1;
@@ -313,13 +345,13 @@ public:
                 roll *= -1;
 
             std::cout << " yaw: " << yaw << " pitch: " << pitch << " roll: " << roll << "\n";
-            if(m_sortedIndex.size() > 1)
-                std::cout << "0)length_ratio: " << (position.row(m_sortedIndex[0]) - 
-                    position.row(m_sortedIndex[1])).norm() / m_original_edge_length[0] << std::endl;      
-            for(int i=1; i<m_sortedIndex.size()-1; i++){
-                double length = (position.row(m_sortedIndex[i]) - position.row(m_sortedIndex[i+1])).norm();
-                double cos = (position.row(m_sortedIndex[i+1]) - position.row(m_sortedIndex[i])).normalized()
-                .dot((position.row(m_sortedIndex[i-1]) - position.row(m_sortedIndex[i])).normalized());
+            if(m_avgPosition.size() > 1)
+                std::cout << "0)length_ratio: " << (m_avgPosition[1] - 
+                    m_avgPosition[0]).norm() / m_original_edge_length[0] << std::endl;      
+            for(int i=1; i<m_avgPosition.size()-1; i++){
+                double length = (m_avgPosition[i+1] - m_avgPosition[i]).norm();
+                double cos = (m_avgPosition[i+1] - m_avgPosition[i]).normalized()
+                            .dot((m_avgPosition[i-1] - m_avgPosition[i]).normalized());
                 std::cout << i << ")length_ratio: " <<  length / m_original_edge_length[i]; 
                 std::cout << "  angle:  "<< std::acos(cos) << std::endl;
             }
@@ -371,7 +403,7 @@ public:
             m_usedShapeConstraint = false;
         });
 
-        b = new Button(shapeup_win, "Add BaseAngle constraints to selection(right)");
+        b = new Button(shapeup_win, "Add Angle constraints to selection(right)");
         b->setCallback([this]() {
             if (!m_isInitialized) return;
             addBaseAngleConstraintsSelection(1., true);
@@ -380,7 +412,7 @@ public:
             m_usedShapeConstraint = false;
         });
 
-        b = new Button(shapeup_win, "Add angle constraints to selection(left)");
+        b = new Button(shapeup_win, "Add Angle constraints to selection(left)");
         b->setCallback([this]() {
             if (!m_isInitialized) return;
             addBaseAngleConstraintsSelection(1., false);
@@ -395,7 +427,25 @@ public:
     }
 
 
-
+    void updateGroupAvgPosition(){
+        int num, lower;
+        ProjDyn::Vector3 sum;
+        for(int i=0; i<4; i++){
+            sum << 0.0, 0.0, 0.0;
+            if(i == 0) {
+                num = m_groupNum[0];
+                lower = 0;
+            }
+            else {
+                num = (m_groupNum[i] - m_groupNum[i-1]);
+                lower = m_groupNum[i-1];
+            }
+            for(int j = lower; j < m_groupNum[i]; j++){
+                sum += m_pdAPI.getPositions().row(m_sortedIndex[j]);
+            }
+            m_avgPosition[i] = sum / num;
+        }
+    }
 
     void addEdgeSpringConstraintsSelection(ProjDyn::Scalar weight) {
         Surface_mesh* smesh = m_viewer->getMesh();
@@ -423,25 +473,19 @@ public:
     void addBaseAngleConstraintsSelection(ProjDyn::Scalar weight, bool right_side) {
         Surface_mesh* smesh = m_viewer->getMesh();
         std::vector<ProjDyn::ConstraintPtr> angle_constraints;
-        const auto& selVerts = m_sortedIndex;
         // The weight is set to the edge length
         ProjDyn::Scalar w = 1;
-        std::vector<Index> edge_inds;
-        edge_inds.push_back(selVerts[0]);
-        edge_inds.push_back(selVerts[1]);
-        edge_inds.push_back(selVerts[2]);
-        edge_inds.push_back(selVerts[3]);
         std::vector<ProjDyn::Scalar> theta_target;
         theta_target.push_back(0.0);
         theta_target.push_back(0.0);
         theta_target.push_back(0.0);
         theta_target.push_back(0.0);
         theta_target.push_back(0.0);
-        ProjDyn::BaseAngleConstraint* esc = new ProjDyn::BaseAngleConstraint(edge_inds, w, m_initialPositions, right_side, 
+        ProjDyn::BaseAngleConstraint* esc = new ProjDyn::BaseAngleConstraint(m_sortedIndex, m_groupNum, w, m_initialPositions, right_side, 
             theta_target, THETA_SCOPE);
-        esc -> set_angle_target(0, 1);
-        esc -> set_angle_target(1, 1.5);
-        esc -> set_angle_target(2, 1);
+        //esc -> set_angle_target(0, 1);
+        //esc -> set_angle_target(1, 1.5);
+        //esc -> set_angle_target(2, 1);
         angle_constraints.push_back(std::shared_ptr<ProjDyn::BaseAngleConstraint>(esc));
         m_pdAPI.addConstraints(std::make_shared<ProjDyn::ConstraintGroup>("Angle selection", angle_constraints, weight));
     }
@@ -583,7 +627,6 @@ public:
                 }
             }
         }
-
         m_viewer->updateVertexStatus(vStatus);
     }
 
@@ -721,6 +764,8 @@ private:
     Button* m_buttonEdgeSprings = nullptr;
     bool m_isInitialized = false;
     std::vector<Index> m_sortedIndex; 
+    std::vector<int> m_groupNum;
     std::vector<double> m_original_edge_length;
+    std::vector<ProjDyn::Vector3> m_avgPosition;
     std::vector<Index> m_reference;
 };

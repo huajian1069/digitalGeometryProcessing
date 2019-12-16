@@ -144,7 +144,7 @@ namespace ProjDyn {
     public:
         BaseAngleConstraint(const std::vector<Index>& edge_vertices,std::vector<int> groupNum, Scalar weight,
             const Positions& positions, bool right_side, 
-            std::vector<ProjDyn::Scalar> theta_target, Scalar theta_scope = 0.2)
+            std::vector<ProjDyn::Scalar> theta_target, Scalar theta_scope)
             :
             Constraint(edge_vertices, weight)
         {
@@ -187,11 +187,11 @@ namespace ProjDyn {
             ProjDyn::Vector3 right_final, right;
             Scalar yaw, pitch, roll;
             //build normal vector of first joint plane
-            //updateGroupAvgPosition(positions);
+            updateGroupAvgPosition(positions);
             extract3DoFanlges(yaw, pitch, roll);
-            std::cout << " yaw: " << yaw << " pitch: " << pitch << " roll: " << roll << "\n";
-            std::cout << " yaw_target: " << m_yaw_target << " pitch_target: " 
-                    << m_pitch_target << " roll_target: " << m_roll_target << "\n";
+            //std::cout << " yaw: " << yaw << " pitch: " << pitch << " roll: " << roll << "\n";
+            //std::cout << " yaw_target: " << m_yaw_target << " pitch_target: " 
+            //        << m_pitch_target << " roll_target: " << m_roll_target << "\n";
             //restrict the components in x-y plane
             ProjDyn::Vector3 xy_inplane = ensureAroundTarget(yaw, m_yaw_target, m_x_initial, m_y_initial, "yaw");
             // restrict the components in projection-y plane
@@ -204,8 +204,8 @@ namespace ProjDyn {
             ProjDyn::Vector3 y_normal_final = ensureAroundTarget(roll, m_roll_target, y_after_2rot, z_after_2rot, "roll");
 
             Scalar theta_x = extract1DoFanlges(0);
-            std::cout << "1th angle: " << theta_x << "\n";
-            std::cout << "1th angle target: " << m_theta_target[0] << "\n";
+            //std::cout << "1th angle: " << theta_x << "\n";
+            //std::cout << "1th angle target: " << m_theta_target[0] << "\n";
             y_inplane = -left_final.cross(y_normal_final);
             right_final = ensureAroundTarget(theta_x, m_theta_target[0], -left_final, y_inplane, "1th");
             projection.row(m_constraint_id + 1) = right_final * m_length[1];
@@ -214,8 +214,8 @@ namespace ProjDyn {
             y_inplane = x_inplane.cross(y_normal_final);
             for(int i = 1; i < m_theta_target.size(); i++){
                 Scalar theta_x = extract1DoFanlges(i);
-                std::cout << "2th angle: " << theta_x << "\n";
-                std::cout << "2th angle target: " << m_theta_target[1] << "\n";
+           //     std::cout << "2th angle: " << theta_x << "\n";
+           //     std::cout << "2th angle target: " << m_theta_target[1] << "\n";
                 right_final = ensureAroundTarget(theta_x, m_theta_target[i], x_inplane, y_inplane, "2th");
                 projection.row(m_constraint_id + 1 + i) = right_final * m_length[i+1];
                 x_inplane = - right_final;
@@ -256,8 +256,6 @@ namespace ProjDyn {
             left = m_avgPosition[1] - m_avgPosition[0];
             right = m_avgPosition[2] - m_avgPosition[1];
             y_normal = right.cross(-left).normalized();
-            if(right.dot(-left) < 0)
-                y_normal *= -1;
         }
 
         Scalar extract1DoFanlges(int i){
@@ -299,15 +297,19 @@ namespace ProjDyn {
 
         ProjDyn::Vector3 ensureAroundTarget(Scalar theta, Scalar target, ProjDyn::Vector3 xAxis, ProjDyn::Vector3 yAxis, std::string str){
             ProjDyn::Vector3 adjusted;
+            Scalar theta_scope;
+            if(str == "pitch" || str == "roll")
+                theta_scope = 0.2;
+            else theta_scope = m_theta_scope;
             if(theta < (target - m_theta_scope)){
                 std::cout << str + " angle too small " << theta - target  << std::endl;
-                adjusted = std::cos(target - m_theta_scope) * xAxis 
-                    + std::sin(target - m_theta_scope) * yAxis;
+                adjusted = std::cos(target - theta_scope) * xAxis 
+                    + std::sin(target - theta_scope) * yAxis;
             }
-            else if(theta > (target + m_theta_scope)){
+            else if(theta > (target + theta_scope)){
                 std::cout << str + " angle too big " << theta - target << std::endl;
-                adjusted = std::cos(target + m_theta_scope) * xAxis 
-                    + std::sin(target + m_theta_scope) * yAxis;
+                adjusted = std::cos(target + theta_scope) * xAxis 
+                    + std::sin(target + theta_scope) * yAxis;
             }
             else
                 adjusted = std::cos(theta) * xAxis  + std::sin(theta) * yAxis;

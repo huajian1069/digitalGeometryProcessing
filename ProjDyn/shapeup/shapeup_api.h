@@ -21,7 +21,7 @@
 using namespace ProjDyn;
 
 // The default weight given to "movable" vertex groups
-constexpr ProjDyn::Scalar SHAPEUP_MOVABLE_WEIGHT = 1.;
+constexpr ProjDyn::Scalar SHAPEUP_MOVABLE_WEIGHT = 0.5;
 // The default number of local-global iterations
 constexpr ProjDyn::Index SHAPEUP_DEFAULT_NUM_ITS = 10;
 

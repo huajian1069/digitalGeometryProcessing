@@ -15,7 +15,7 @@
 #include "projdyn_types.h"
 #include "projdyn_common.h"
 #include "projdyn_constraints.h"
-
+#include <typeinfo>
 #include <memory>
 #include <iostream>
 
@@ -74,11 +74,13 @@ namespace ProjDyn {
             // Get list of all current constraints from constraint group
             m_constraints.clear();
             for (auto cg : m_constraintGroups) {
+            	if(cg -> name == "Angle selection") m_angleCon_begin = m_constraints.size();
                 for (auto c : cg->constraints) {
                     // Update weight multiplier of constraint and add to list of all constraints
                     c->setWeightMultiplier(cg->weight);
                     m_constraints.push_back(c);
                 }
+                if(cg -> name == "Angle selection") m_angleCon_end = m_constraints.size();
             }
 
             if (m_constraints.size() == 0) {
@@ -139,7 +141,7 @@ namespace ProjDyn {
         // After these steps, the updated positions can be extracted via getPositions()
         // NOTE: for ShapeUp style shape editing, m_dynamicMode is set to false, and all
         // sections that require it to be true can be ignored.
-        bool step(int num_iterations) {
+        bool step(int num_iterations, int time) {
             // The system needs to be initialized before running the local-global alg.
             if (!m_system_init || !m_lhs_updated) return false;
 
@@ -167,12 +169,20 @@ namespace ProjDyn {
 
             // The local-global algorithm:
             for (int it = 0; it < num_iterations; it++) {
-
+                
                 // --------------------------------------------------
                 // Local step: compute constraint projections and put them in a vector
                 // --------------------------------------------------
 #pragma omp parallel for
                 for (int j = 0; j < m_constraints.size(); j++) {
+                	if(j >= m_angleCon_begin && j < m_angleCon_end){
+                		std::shared_ptr<BaseAngleConstraint> angleCon = std::dynamic_pointer_cast<BaseAngleConstraint>(m_constraints[j]);
+                		/*std::cout << "change to " << angleCon << " degree" << endl;
+                	    angleCon -> set_angle_target(0, 0.25 * std::sin(2 * 3.1415 * 0.5 * time / 20.0) );
+                	    angleCon -> set_angle_target(1, 0.8 + 0.2 * std::sin(2 * 3.1415 * 0.5 * time / 20.0 + 2));	
+                		angleCon -> set_angle_target(3, 1.8 + 0.1 * std::sin(2 * 3.1415 * 0.5 * time / 20.0 + 2.5));
+   						*/
+                	}
                     m_constraints[j]->project(m_positions, m_constraint_projections);
                 }
 
@@ -389,6 +399,7 @@ namespace ProjDyn {
 		Index m_num_tris = 0;
 		Index m_num_tets = 0;
 
+		int m_angleCon_begin, m_angleCon_end;
 		// External forces per vertex
 		// Note that those are pre-multiplied by the inverse mass, such that
 		// the momentum term can be computed cheaper.

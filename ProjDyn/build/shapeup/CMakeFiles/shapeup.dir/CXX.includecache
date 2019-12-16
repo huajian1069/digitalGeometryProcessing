@@ -1603,6 +1603,8 @@ projdyn_common.h
 ../projdyn/projdyn_common.h
 projdyn_constraints.h
 ../projdyn/projdyn_constraints.h
+typeinfo
+-
 memory
 -
 iostream

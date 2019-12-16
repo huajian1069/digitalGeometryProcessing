@@ -255,8 +255,6 @@ namespace ProjDyn {
             left = m_avgPosition[1] - m_avgPosition[0];
             right = m_avgPosition[2] - m_avgPosition[1];
             y_normal = right.cross(-left).normalized();
-            if(right.dot(-left) < 0)
-                y_normal *= -1;
         }
 
         Scalar extract1DoFanlges(int i){

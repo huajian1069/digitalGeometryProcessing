@@ -17,6 +17,7 @@
 #include <nanogui/window.h>
 #include <nanogui/layout.h>
 #include <nanogui/button.h>
+#include <fstream>
 
 #define THETA_SCOPE 0.1
 #define THETA_TARGET 1.5
@@ -398,8 +399,6 @@ public:
             m_usedShapeConstraint = false;
         });
 
-
-
         b = new Button(shapeup_win, "Add edge constraints to selection");
         b->setCallback([this]() {
             if (!m_isInitialized) return;
@@ -487,16 +486,43 @@ public:
         theta_target.push_back(0.0);
         theta_target.push_back(0.0);
         theta_target.push_back(0.0);
-        ProjDyn::BaseAngleConstraint* esc = new ProjDyn::BaseAngleConstraint(m_sortedIndex, m_groupNum, w, m_initialPositions, right_side, 
-            theta_target, THETA_SCOPE);
+        if(m_sortedIndex.size() == 0){
+            std::ifstream inFile;
+            int x;
+            inFile.open("../data/vertices_index.txt");
+            if(!inFile){
+                std::cout << "could not open" << std::endl;
+                return;
+            }
+            for(int leg = 0; leg < 8; leg++){
+                for(int i = 0; i < 4; i++){
+                    inFile >> x;
+                    m_sortedIndex.push_back(x);
+                    m_groupNum.push_back(i+1);
+                }
+                bool right = (leg > 3);
+                ProjDyn::BaseAngleConstraint* esc = new ProjDyn::BaseAngleConstraint(m_sortedIndex, m_groupNum, w, m_initialPositions, right, 
+                            theta_target, THETA_SCOPE);
+                angle_constraints.push_back(std::shared_ptr<ProjDyn::BaseAngleConstraint>(esc));
+                m_sortedIndex.clear();
+                m_groupNum.clear();
+                std::cout << leg + 1 << " legs has been added " << std::endl;
+            }
+        }
+        else{
+            ProjDyn::BaseAngleConstraint* esc = new ProjDyn::BaseAngleConstraint(m_sortedIndex, m_groupNum, w, m_initialPositions, right_side, 
+                theta_target, THETA_SCOPE);
+            angle_constraints.push_back(std::shared_ptr<ProjDyn::BaseAngleConstraint>(esc));
+            std::cout << angle_constraints.size() << " legs has been added " << std::endl;
+        }
         //esc -> set_angle_target(0, 1);
         //esc -> set_angle_target(1, 1.5);
         //esc -> set_angle_target(2, 1);
-        angle_constraints.push_back(std::shared_ptr<ProjDyn::BaseAngleConstraint>(esc));
-        std::cout << angle_constraints.size() << " legs has been added " << std::endl;
+
         if(angle_constraints.size() == 8){
             m_pdAPI.addConstraints(std::make_shared<ProjDyn::ConstraintGroup>("Angle selection", angle_constraints, weight));
             std::cout << " Done !" << std::endl;
+            angle_constraints.clear();
         }
     }
 /*

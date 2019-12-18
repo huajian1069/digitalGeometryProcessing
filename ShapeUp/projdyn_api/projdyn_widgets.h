@@ -91,7 +91,7 @@ private:
 };
 
 
-
+/* begin of modification */
 class AngleConstraintSlider : public Slider {
 public:
     AngleConstraintSlider(Widget* parent, Viewer* viewer, ProjDyn::Index numVerts, ProjDyn::ConstraintGroupPtr constraint, int i)
@@ -116,8 +116,6 @@ public:
 
         setCallback([this](float v) {
             m_textBox->setValue(ProjDyn::floatToString(v));
-            //std::shared_ptr<ProjDyn::BaseAngleConstraint> foo = 
-            //std::dynamic_pointer_cast<ProjDyn::BaseAngleConstraint>();
             for(auto constraint : m_constraint->constraints)
                 constraint-> set_angle_target(m_index, (ProjDyn::Scalar)v);
         });
@@ -167,5 +165,5 @@ private:
     ProjDyn::Index m_numVerts;
     Eigen::RowVectorXi m_storedStatus;
     TextBox* m_textBox;
-
 };
+/* end of modification */

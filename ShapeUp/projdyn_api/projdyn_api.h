@@ -209,7 +209,7 @@ public:
                 if (wasRunning) start();
             });
 
-
+            /* begin of modification */
             if(g->name == "Angle selection"){
                 AngleConstraintSlider* sliders[5];
                 for(int i=0; i<5; i++){
@@ -224,10 +224,10 @@ public:
                             new Label(m_constraint_window, "roll", "sans-bold");
                             break;
                         case 3:
-                            new Label(m_constraint_window, "1th", "sans-bold");
+                            new Label(m_constraint_window, "1th 1DoF angle", "sans-bold");
                             break;
                         case 4:
-                            new Label(m_constraint_window, "2th", "sans-bold");
+                            new Label(m_constraint_window, "2th 1DoF angle", "sans-bold");
                             break;
                     }
                     Widget* panel = new Widget(m_constraint_window);
@@ -242,6 +242,7 @@ public:
                     });
                 }
             }
+            /* end of modification */
         }
 
         Button* b = new Button(m_constraint_window, "Update");

@@ -804,7 +804,7 @@ public:
         ProjDyn::Vector voronoiAreas = ProjDyn::vertexMasses(m_simulator.getPositions(), m_simulator.getTriangles());
         Surface_mesh* smesh = m_viewer->getMesh();
         for (auto v : smesh->vertices()) {
-            
+            if(std::find(m_part.begin(), m_part.end(), i) == m_part.end())
             Index i = v.idx();
             if (std::find(vertInds.begin(), vertInds.end(), i) == vertInds.end()) continue;
             if (smesh->is_boundary(v)) continue;
@@ -832,6 +832,7 @@ public:
         const ProjDyn::Positions& sim_verts = m_simulator.getInitialPositions();
         const ProjDyn::Triangles& tris = m_simulator.getTriangles();
         for (Index i : triInds) {
+
             if (i >= tris.rows()) continue;
             std::vector<ProjDyn::Index> triInds;
             for (int j = 0; j < 3; j++) triInds.push_back(tris(i, j));

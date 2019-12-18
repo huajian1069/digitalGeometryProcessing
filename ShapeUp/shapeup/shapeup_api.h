@@ -17,10 +17,13 @@
 #include <nanogui/window.h>
 #include <nanogui/layout.h>
 #include <nanogui/button.h>
-#include <fstream>
 
-#define THETA_SCOPE 0.1
-#define THETA_TARGET 1.5
+
+/* begin of modification */
+#include <fstream>
+#define THETA_SCOPE 0.1         // tolerance scope: (target angle +/- THETA_SCOPE)
+#define THETA_TARGET 1.5        // never used
+/* end of modification */
 
 using namespace ProjDyn;
 
@@ -219,7 +222,8 @@ public:
             m_pdAPI.update(true);
         });
 
-        b = new Button(shapeup_win, "Fix Selection");
+        /* begin of modification */
+        b = new Button(shapeup_win, "Fix Selected Points");
         b->setCallback([this]() {
             if (!m_isInitialized) return;
             const auto& selVerts = m_viewer->getSelectedVertices();
@@ -229,50 +233,7 @@ public:
             m_pdAPI.update(true);
         });
 
-/*
-        b = new Button(shapeup_win, "reset as current position");
-        b->setCallback([this]() {
-            if(!m_isInitialized) return;
-            const auto& selVerts = m_viewer->getSelectedVertices();
-            for (const auto& grp : m_movableGroups) {
-                for (const auto& cur_con : grp->constraints) {
-                    for (Index ind : selVerts) {
-                        if (std::find(cur_con->getIndices().begin(), cur_con->getIndices().end(), ind) != cur_con->getIndices().end()) {
-                            m_oldConstraintPos = std::dynamic_pointer_cast<PositionConstraintGroup>(cur_con)->getTargetPositions();
-                            Positions newTargetPos = m_oldConstraintPos;
-                            for (Index i = 0; i < newTargetPos.rows(); i++) {
-                                newTargetPos.row(i) = m_pdAPI.getPositions().row(ind);
-                            }
-                            std::dynamic_pointer_cast<PositionConstraintGroup>(cur_con)->setTargetPositions(newTargetPos);
-                        }
-                    }
-                    ind++;
-                }
-            }
-        }
-        )
-
- 
-        b = new Button(shapeup_win, "Coordinate Building");
-        b->setCallback([this]() {
-            if (!m_isInitialized) return;
-            const std::vector<Index>& selVerts = m_viewer->getSelectedVertices();
-            if (selVerts.size() != 1) return;
-            if(m_reference.size() < 3){
-                m_reference.push_back(selVerts[0]);
-                std::cout << m_sortedIndex.size() <<"th point added" << std::endl;
-            }
-            if(m_reference.size() == 3){
-                m_reference[0] = (m_reference[0] - m_reference[1]).normalized();
-                m_reference[2] = (m_reference[2] - m_reference[1]);
-                //std::cout << "Constructing local coordinate done! "
-                 //           << 
-            }
-        });
-
-        */
-
-        b = new Button(shapeup_win, "Cache Group Selection");
+        b = new Button(shapeup_win, "Cache Selected Group of Vertices");
         b->setCallback([this]() {
             if (!m_isInitialized) return;
             const std::vector<Index>& selVerts = m_viewer->getSelectedVertices();
@@ -301,22 +262,8 @@ public:
             }
             std::cout << m_groupNum.size() <<"th group of "<< selVerts.size() << " points added" << std::endl;
         });
-        /*
-        b = new Button(shapeup_win, "Cache Selection");
-        b->setCallback([this]() {
-            if (!m_isInitialized) return;
-            const std::vector<Index>& selVerts = m_viewer->getSelectedVertices();
-            if (selVerts.size() != 1 ) return;
-            if(m_sortedIndex.size() > 0){
-                double length = (m_pdAPI.getPositions().row(selVerts[0]) - m_pdAPI.getPositions().row(m_sortedIndex.back())).norm();
-                m_original_edge_length.push_back(length);
-            }
-            m_sortedIndex.push_back(selVerts[0]);
-            std::cout << m_sortedIndex.size() <<"th point added" << std::endl;
-        });
-*/
 
-        b = new Button(shapeup_win, "Cache Display");
+        b = new Button(shapeup_win, "Display Info of Cached Points");
         b->setCallback([this]() {
             m_avgPosition.reserve(4);
             updateGroupAvgPosition();
@@ -353,17 +300,17 @@ public:
 
             std::cout << " yaw: " << yaw << " pitch: " << pitch << " roll: " << roll << "\n";
             if(m_avgPosition.size() > 1)
-                std::cout << "0)length_ratio: " << (m_avgPosition[1] - 
+                std::cout << "0)length_ratio: current/original = " << (m_avgPosition[1] - 
                     m_avgPosition[0]).norm() / m_original_edge_length[0] << std::endl;      
             for(int i=1; i<m_avgPosition.size()-1; i++){
                 double length = (m_avgPosition[i+1] - m_avgPosition[i]).norm();
                 double cos = (m_avgPosition[i+1] - m_avgPosition[i]).normalized()
                             .dot((m_avgPosition[i-1] - m_avgPosition[i]).normalized());
-                std::cout << i << ")length_ratio: " <<  length / m_original_edge_length[i]; 
-                std::cout << "  angle:  "<< std::acos(cos) << std::endl;
+                std::cout << i << ")length_ratio: current/original = " <<  length / m_original_edge_length[i]; 
+                std::cout << " current angle:  "<< std::acos(cos) << std::endl;
             }
         });
-
+        /* end of modification */
 
         b = new Button(shapeup_win, "Select Boundary");
         b->setCallback([this]() {
@@ -399,7 +346,8 @@ public:
             m_usedShapeConstraint = false;
         });
 
-        b = new Button(shapeup_win, "Add edge constraints to selection");
+        /* begin of modification */
+        b = new Button(shapeup_win, "Add edge constraints to selected");
         b->setCallback([this]() {
             if (!m_isInitialized) return;
             addEdgeSpringConstraintsSelection(1.);
@@ -408,7 +356,8 @@ public:
             m_usedShapeConstraint = false;
         });
 
-        b = new Button(shapeup_win, "Add Angle constraints to selection(right)");
+        // add constraint to one leg on right side
+        b = new Button(shapeup_win, "Add Angle constraints to selected(right) leg");
         b->setCallback([this]() {
             if (!m_isInitialized) return;
             addBaseAngleConstraintsSelection(1., true);
@@ -416,8 +365,8 @@ public:
             m_viewer->clearSelection();
             m_usedShapeConstraint = false;
         });
-
-        b = new Button(shapeup_win, "Add Angle constraints to selection(left)");
+        // add constraint to one leg on left side
+        b = new Button(shapeup_win, "Add Angle constraints to selected(left) leg");
         b->setCallback([this]() {
             if (!m_isInitialized) return;
             addBaseAngleConstraintsSelection(1., false);
@@ -425,7 +374,7 @@ public:
             m_viewer->clearSelection();
             m_usedShapeConstraint = false;
         });
-
+        /* end of modification */
         m_pdAPI.initConstraintsGUI();
 
         m_viewer->performLayout();
@@ -452,15 +401,18 @@ public:
         }
     }
 
+
+    /*begin of modifying*/
     void addEdgeSpringConstraintsSelection(ProjDyn::Scalar weight) {
         Surface_mesh* smesh = m_viewer->getMesh();
         std::vector<ProjDyn::ConstraintPtr> spring_constraints;
         const auto& selVerts = m_viewer->getSelectedVertices();
 
         for (auto edge : smesh->edges()) {
-                // The weight is set to the edge length
+            // only add Edge Constraints to those edges whose two vertices are selected
             if (std::find(selVerts.begin(), selVerts.end(), smesh->vertex(edge, 0).idx()) == selVerts.end()) continue;
             if (std::find(selVerts.begin(), selVerts.end(), smesh->vertex(edge, 1).idx()) == selVerts.end()) continue;
+            // The weight is set to the edge length
             ProjDyn::Scalar w = (m_initialPositions.row(smesh->vertex(edge, 0).idx()) - m_initialPositions.row(smesh->vertex(edge, 1).idx())).norm();
             if (w > 1e-6) {
                     // The constraint is constructed, made into a shared pointer and appended to the list
@@ -476,31 +428,46 @@ public:
     }
 
     void addBaseAngleConstraintsSelection(ProjDyn::Scalar weight, bool right_side) {
+        /***************************************************************************//**
+        * A brief history of Doxygen-style banner comments.
+        *
+        * This is a Doxygen-style C-style "banner" comment. It starts with a "normal"
+        * comment and is then converted to a "special" comment block near the end of
+        * the first line. It is written this way to be more "visible" to developers
+        * who are reading the source code.
+        * This style of commenting behaves poorly with clang-format.
+        *
+        * @param theory Even if there is only one possible unified theory. it is just a
+        *               set of rules and equations.
+        ******************************************************************************/
         Surface_mesh* smesh = m_viewer->getMesh();
         static std::vector<ProjDyn::ConstraintPtr> angle_constraints;
         // The weight is set to the edge length
         ProjDyn::Scalar w = 1;
         std::vector<ProjDyn::Scalar> theta_target;
+        theta_target.push_back(0.0);    // never used
         theta_target.push_back(0.0);
         theta_target.push_back(0.0);
         theta_target.push_back(0.0);
         theta_target.push_back(0.0);
-        theta_target.push_back(0.0);
+
         if(m_sortedIndex.size() == 0){
+            // Default mode: if no vertices is selected by hand, then loading pre-selected vertices index from disk
             std::ifstream inFile;
             int x;
             inFile.open("../data/vertices_index.txt");
             if(!inFile){
-                std::cout << "could not open" << std::endl;
+                std::cout << "could not open/find file at ../data/vertices_index.txt" << std::endl;
                 return;
             }
             for(int leg = 0; leg < 8; leg++){
                 for(int i = 0; i < 4; i++){
                     inFile >> x;
                     m_sortedIndex.push_back(x);
-                    m_groupNum.push_back(i+1);
+                    m_groupNum.push_back(i+1);  //  first joint vertex is stored at 1st position of m_sortedIndex
+                                                //  second joint is at 2nd position and so on
                 }
-                bool right = (leg > 3);
+                bool right = (leg > 3);         // right and left side of angle constrains will build opposite local coordinate
                 ProjDyn::BaseAngleConstraint* esc = new ProjDyn::BaseAngleConstraint(m_sortedIndex, m_groupNum, w, m_initialPositions, right, 
                             theta_target, THETA_SCOPE);
                 angle_constraints.push_back(std::shared_ptr<ProjDyn::BaseAngleConstraint>(esc));
@@ -510,14 +477,12 @@ public:
             }
         }
         else{
+            // Custome mode: supporting select vertices of joint by hand
             ProjDyn::BaseAngleConstraint* esc = new ProjDyn::BaseAngleConstraint(m_sortedIndex, m_groupNum, w, m_initialPositions, right_side, 
                 theta_target, THETA_SCOPE);
             angle_constraints.push_back(std::shared_ptr<ProjDyn::BaseAngleConstraint>(esc));
             std::cout << angle_constraints.size() << " legs has been added " << std::endl;
         }
-        //esc -> set_angle_target(0, 1);
-        //esc -> set_angle_target(1, 1.5);
-        //esc -> set_angle_target(2, 1);
 
         if(angle_constraints.size() == 8){
             m_pdAPI.addConstraints(std::make_shared<ProjDyn::ConstraintGroup>("Angle selection", angle_constraints, weight));
@@ -525,28 +490,9 @@ public:
             angle_constraints.clear();
         }
     }
-/*
-    void addAngleConstraintsSelection(ProjDyn::Scalar weight) {
-        Surface_mesh* smesh = m_viewer->getMesh();
-        std::vector<ProjDyn::ConstraintPtr> angle_constraints;
-        const auto& selVerts = m_sortedIndex;
-        for (int i = 0; i < selVerts.size()-2; i++) {
-                // The weight is set to the edge length
-            ProjDyn::Scalar w = 1;
-            std::vector<Index> edge_inds;
-            edge_inds.push_back(selVerts[i]);
-            edge_inds.push_back(selVerts[i+1]);
-            edge_inds.push_back(selVerts[i+2]);
-            ProjDyn::AngleConstraint* esc = new ProjDyn::AngleConstraint(edge_inds, w, m_initialPositions, 
-            new std::vector<Index>(selVerts.begin(), selVerts.begin() + 3), THETA_TARGET, THETA_SCOPE);
-            angle_constraints.push_back(std::shared_ptr<ProjDyn::AngleConstraint>(esc));
-        }
-        m_pdAPI.addConstraints(std::make_shared<ProjDyn::ConstraintGroup>("Angle selection", angle_constraints, weight));
-    }
+    /*end of modifying*/
 
 
-
-*/
     // Here, a flatness or smoothness constraint is added to the vertices
     // that have been selected in the viewer.
     // You can examine this method to understand how constraints can be created
@@ -799,9 +745,10 @@ private:
     ProjDynAPI m_pdAPI;
     Button* m_buttonEdgeSprings = nullptr;
     bool m_isInitialized = false;
-    std::vector<Index> m_sortedIndex; 
-    std::vector<int> m_groupNum;
-    std::vector<double> m_original_edge_length;
-    std::vector<ProjDyn::Vector3> m_avgPosition;
-    std::vector<Index> m_reference;
+    /* begaining of self added varibles to record state */
+    std::vector<Index> m_sortedIndex;               // store the vetices selected in sequence
+    std::vector<int> m_groupNum;                    // store the counts of selected vertices at each joint
+    std::vector<double> m_original_edge_length;     // store the original length of each limb part
+    std::vector<ProjDyn::Vector3> m_avgPosition;    // store the average position of selected vertices at each joint
+    /*end*/
 };

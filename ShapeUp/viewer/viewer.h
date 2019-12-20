@@ -336,12 +336,13 @@ public:
             popupBtn->setPushed(false);
         });
 
+        /*begin of modification*/
         b = new Button(popup, "Spider");
         b->setCallback([this, popupBtn]() {
             loadMesh("../data/spider.obj");
             popupBtn->setPushed(false);
         });
-
+        /*end of modification*/
 
         b = new Button(popup, "Open from disk");
         b->setCallback([this, popupBtn] {

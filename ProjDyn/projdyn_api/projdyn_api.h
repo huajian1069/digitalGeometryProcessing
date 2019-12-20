@@ -16,6 +16,7 @@
 #include "viewer.h"
 #include "projdyn_widgets.h"
 
+
 #define THETA_SCOPE 0.3
 #define THETA_TARGET 1.5
 
@@ -85,6 +86,7 @@ public:
             }
         });
 
+        /* begin of modification */
         Button* cache = new Button(pd_win, "Cache Group Selection");
         cache->setCallback([this]() {
             const std::vector<Index>& selVerts = m_viewer->getSelectedVertices();
@@ -155,6 +157,8 @@ public:
                 std::cout << "  angle:  "<< std::acos(cos) << std::endl;
             }
         });
+         /* end of modification */
+
         Button* addtets_b = new Button(pd_win, "Tetrahedralize");
         addtets_b->setCallback([this]() {
             setMesh(true);
@@ -221,8 +225,8 @@ public:
             }
             popupBtn->setPushed(false);
         });
-
-
+        /* begin of modification*/
+        // add constraint to one leg on right side
         b = new Button(popup, "Add Angle constraints to selection(right)");
         b->setCallback([this, popupBtn]() {
             bool was_active = m_simActive;
@@ -233,7 +237,7 @@ public:
             }
             popupBtn->setPushed(false);
         });
-
+        // add constraint to one leg on left side
         b = new Button(popup, "Add Angle constraints to selection(left)");
         b->setCallback([this, popupBtn]() {
             bool was_active = m_simActive;
@@ -244,7 +248,7 @@ public:
             }
             popupBtn->setPushed(false);
         });
-
+        // fix position of selected vertices
         b = new Button(popup, "Fix Selection");
         b->setCallback([this, popupBtn]() {
             bool was_active = m_simActive;
@@ -257,7 +261,7 @@ public:
             }
             popupBtn->setPushed(false);
         });
-
+        /* end of modification */
 
         Button* clear_b = new Button(pd_win, "Clear constraints");
         clear_b->setCallback([this]() {
@@ -320,7 +324,8 @@ public:
                 if (wasRunning) start();
             });
 
-
+            /* begin of modification */
+            // using 5 sliders to control target angles, all 8 limbs share same target angle
             if(g->name == "Angle selection"){
                 AngleConstraintSlider* sliders[5];
                 for(int i=0; i<5; i++){
@@ -353,7 +358,7 @@ public:
                     });
                 }
             }
-
+            /* end of modification */
 
 
         }
@@ -434,10 +439,11 @@ public:
             if (!m_simulator.initializeSystem())
                 return false;
         }
+        /* begin of modification */
         static int time = 0;
         // Simulate one time step
         m_simulator.step(m_numIterations, time++);
-
+        /* end of modification */
         return uploadPositions(forcedUpload);
     }
 
@@ -645,18 +651,27 @@ public:
     }
 
     void addBaseAngleConstraintsSelection(ProjDyn::Scalar weight, bool right_side) {
+        /***************************************************************************//**
+        * This function has two mode:
+        * Default mode: adding constraints to pre-seleted vertices
+        * Custome mode: adding constraints to hand-selected vertices
+        *
+        * @param weight, weight, weight of this constraint on global step
+        * @param right_side, right_side, whether or not this constraint is added on right side limb              
+        ******************************************************************************/
         Surface_mesh* smesh = m_viewer->getMesh();
         static std::vector<ProjDyn::ConstraintPtr> angle_constraints;
         const ProjDyn::Positions& sim_verts = m_simulator.getInitialPositions();
         // The weight is set to the edge length
         ProjDyn::Scalar w = 1;
         std::vector<ProjDyn::Scalar> theta_target;
-        theta_target.push_back(0.0);
+        theta_target.push_back(0.0);    // never used
         theta_target.push_back(0.0);
         theta_target.push_back(0.0);
         theta_target.push_back(0.0);
         theta_target.push_back(0.0);
         if(m_sortedIndex.size() == 0){
+            // Default mode: if no vertices is selected by hand, then loading pre-selected vertices index from disk
             std::ifstream inFile;
             int x;
             inFile.open("../data/vertices_index.txt");
@@ -668,9 +683,10 @@ public:
                 for(int i = 0; i < 4; i++){
                     inFile >> x;
                     m_sortedIndex.push_back(x);
-                    m_groupNum.push_back(i+1);
+                    m_groupNum.push_back(i+1);//  first joint vertex is stored at 1st position of m_sortedIndex
+                                                //  second joint is at 2nd position and so on
                 }
-                bool right = (leg > 3);
+                bool right = (leg > 3);             // right and left side of angle constrains will build opposite local coordinate
                 ProjDyn::BaseAngleConstraint* esc = new ProjDyn::BaseAngleConstraint(m_sortedIndex, m_groupNum, w, sim_verts, right, 
                             theta_target, THETA_SCOPE);
                 angle_constraints.push_back(std::shared_ptr<ProjDyn::BaseAngleConstraint>(esc));
@@ -680,6 +696,7 @@ public:
             }
         }
         else{
+            // Custome mode: supporting select vertices of joint by hand
             ProjDyn::BaseAngleConstraint* esc = new ProjDyn::BaseAngleConstraint(m_sortedIndex, m_groupNum, w, sim_verts, right_side, 
                 theta_target, THETA_SCOPE);
             angle_constraints.push_back(std::shared_ptr<ProjDyn::BaseAngleConstraint>(esc));
@@ -789,70 +806,8 @@ public:
     }
 
 
-    // Add bending constraints to all vertices of the simulation
-    void addBendingSelConstraints(ProjDyn::Scalar weight = 1.) {
-        std::vector<Index> allOuterVerts;
-        for (Index i = 0; i < m_simulator.getNumOuterVerts(); i++) allOuterVerts.push_back(i);
-        addBendingConstraints(allOuterVerts, weight);
-    }
-
-    // Add bending constraints to some vertices of the simulation
-    void addBendingSelConstraints(const std::vector<Index>& vertInds, ProjDyn::Scalar weight = 1.) {
-        std::vector<ProjDyn::ConstraintPtr> bend_constraints;
-        const ProjDyn::Positions& sim_verts = m_simulator.getInitialPositions();
-        std::vector<ProjDyn::VertexStar>& vStars = m_vertexStars;
-        ProjDyn::Vector voronoiAreas = ProjDyn::vertexMasses(m_simulator.getPositions(), m_simulator.getTriangles());
-        Surface_mesh* smesh = m_viewer->getMesh();
-        for (auto v : smesh->vertices()) {
-            if(std::find(m_part.begin(), m_part.end(), i) == m_part.end())
-            Index i = v.idx();
-            if (std::find(vertInds.begin(), vertInds.end(), i) == vertInds.end()) continue;
-            if (smesh->is_boundary(v)) continue;
-            if (i >= m_simulator.getNumOuterVerts()) continue;
-            // The weight is the voronoi area
-            ProjDyn::Scalar w = voronoiAreas(i) * 0.01;
-            if (w > 1e-6) {
-                // The constraint is constructed, made into a shared pointer and appended to the list
-                // of constraints.
-                ProjDyn::BendingConstraint* esc = new ProjDyn::BendingConstraint(vStars[i], w, voronoiAreas(i), sim_verts, m_simulator.getTriangles());
-                bend_constraints.push_back(std::shared_ptr<ProjDyn::BendingConstraint>(esc));
-            }
-        }
-        addConstraints(std::make_shared<ProjDyn::ConstraintGroup>("Tri Bending", bend_constraints, weight));
-    }
-
-
-    void addTriangleStrainSelConstraints(ProjDyn::Scalar weight = 1.) {
-        std::vector<Index> allTris;
-        for (Index i = 0; i < m_simulator.getTriangles().rows(); i++) allTris.push_back(i);
-        addTriangleStrainSelConstraints(allTris, weight);
-    }
-    void addTriangleStrainSelConstraints(const std::vector<Index>& triInds, ProjDyn::Scalar weight = 1.) {
-        std::vector<ProjDyn::ConstraintPtr> tri_constraints;
-        const ProjDyn::Positions& sim_verts = m_simulator.getInitialPositions();
-        const ProjDyn::Triangles& tris = m_simulator.getTriangles();
-        for (Index i : triInds) {
-
-            if (i >= tris.rows()) continue;
-            std::vector<ProjDyn::Index> triInds;
-            for (int j = 0; j < 3; j++) triInds.push_back(tris(i, j));
-            // The weight is the triangle area
-            ProjDyn::Scalar w = ProjDyn::triangleArea(sim_verts, tris.row(i));
-            if (w > 1e-6) {
-                // The constraint is constructed, made into a shared pointer and appended to the list
-                // of constraints.
-                ProjDyn::TriangleStrainConstraint* esc = new ProjDyn::TriangleStrainConstraint(triInds, w, sim_verts);
-                tri_constraints.push_back(std::shared_ptr<ProjDyn::TriangleStrainConstraint>(esc));
-            }
-        }
-        // Add constraints
-        addConstraints(std::make_shared<ProjDyn::ConstraintGroup>("Tri Strain", tri_constraints, weight));
-    }
-
-
-
-
-    // Add edge spring constraints to all edges of the simulation
+    /*begin of modifying*/
+    // Add edge spring constraints to those selected edges
     void addEdgeSpringConstraints(ProjDyn::Scalar weight = 1.) {
         // For tet meshes we cannot use Surface_mesh
         if (m_simulator.getTetrahedrons().rows() > 0) {
@@ -864,9 +819,10 @@ public:
             Surface_mesh* smesh = m_viewer->getMesh();
             std::vector<ProjDyn::ConstraintPtr> spring_constraints;
             for (auto edge : smesh->edges()) {
+                // only add Edge Constraints to those edges whose two vertices are selected
+                if (std::find(m_sortedIndex.begin(), m_sortedIndex.end(), smesh->vertex(edge, 0).idx()) == m_sortedIndex.end()) continue;
+                if (std::find(m_sortedIndex.begin(), m_sortedIndex.end(), smesh->vertex(edge, 1).idx()) == m_sortedIndex.end()) continue;
                 // The weight is set to the edge length
-            if (std::find(m_sortedIndex.begin(), m_sortedIndex.end(), smesh->vertex(edge, 0).idx()) == m_sortedIndex.end()) continue;
-            if (std::find(m_sortedIndex.begin(), m_sortedIndex.end(), smesh->vertex(edge, 1).idx()) == m_sortedIndex.end()) continue;
                 ProjDyn::Scalar w = (sim_verts.row(smesh->vertex(edge, 0).idx()) - sim_verts.row(smesh->vertex(edge, 1).idx())).norm();
                 if (w > 1e-6) {
                     // The constraint is constructed, made into a shared pointer and appended to the list
@@ -881,11 +837,7 @@ public:
             addConstraints(std::make_shared<ProjDyn::ConstraintGroup>("Edge Springs", spring_constraints, weight));
         }
     }
-
-
-
-
-
+    /*end of modifying*/
 
 
 

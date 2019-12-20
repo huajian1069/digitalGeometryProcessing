@@ -102,7 +102,7 @@ private:
 };
 
 
-
+/* begin of modification */
 class AngleConstraintSlider : public Slider {
 public:
     AngleConstraintSlider(Widget* parent, Viewer* viewer, ProjDyn::Index numVerts, ProjDyn::ConstraintGroupPtr constraint, int i)
@@ -117,7 +117,10 @@ public:
         else {
             setValue(0);
         }
-        setRange(std::pair<float, float>(0, 3.14));
+        if(i == 1)  // i = 1, encodes pitch angle
+            setRange(std::pair<float, float>(0, 1.57));      
+        else     
+            setRange(std::pair<float, float>(-1.57, 1.57));
         setFixedWidth(80);
 
         // Add a textbox and set defaults
@@ -125,6 +128,7 @@ public:
         m_textBox->setFixedSize(Vector2i(80, 25));
         m_textBox->setValue(ProjDyn::floatToString(value()));
 
+        // for the joint angle encoded by i,  set target angle for on 8 limbs
         setCallback([this](float v) {
             m_textBox->setValue(ProjDyn::floatToString(v));
             //std::shared_ptr<ProjDyn::BaseAngleConstraint> foo = 

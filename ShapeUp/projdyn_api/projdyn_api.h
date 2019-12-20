@@ -210,6 +210,7 @@ public:
             });
 
             /* begin of modification */
+            // using 5 sliders to control target angles, all 8 limbs share same target angle
             if(g->name == "Angle selection"){
                 AngleConstraintSlider* sliders[5];
                 for(int i=0; i<5; i++){

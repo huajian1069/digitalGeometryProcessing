@@ -106,14 +106,20 @@ public:
         else {
             setValue(0);
         }
-        setRange(std::pair<float, float>(0, 3.14));
+
+        if(i == 1)  // i = 1, encodes pitch angle
+            setRange(std::pair<float, float>(0, 1.57));      
+        else     
+            setRange(std::pair<float, float>(-1.57, 1.57));
+        
         setFixedWidth(80);
 
         // Add a textbox and set defaults
         m_textBox = new TextBox(parent);
         m_textBox->setFixedSize(Vector2i(80, 25));
         m_textBox->setValue(ProjDyn::floatToString(value()));
-
+        
+        // for the joint angle encoded by i,  set target angle for on 8 limbs
         setCallback([this](float v) {
             m_textBox->setValue(ProjDyn::floatToString(v));
             for(auto constraint : m_constraint->constraints)
@@ -142,14 +148,10 @@ public:
         return false;
     }
 
-    // This needs to be overridden since the event of leaving the area of the slider with the mouse
-    // while clicking does not trigger the mouseEnterEvent, i.e. the vertex status is never
-    // restored
+
     virtual bool mouseButtonEvent(const Vector2i& p, int button, bool down, int modifiers) override
     {
         Slider::mouseButtonEvent(p, button, down, modifiers);
-        // When releasing the button and we "entered" this constraint before, restore the original
-        // vertex status.
         if (!down && m_entered) {
             m_entered = false;
             m_viewer->updateVertexStatus(m_storedStatus);

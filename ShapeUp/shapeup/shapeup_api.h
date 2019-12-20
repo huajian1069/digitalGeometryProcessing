@@ -290,7 +290,7 @@ public:
             if(projected.dot(m_y_initial) < 0)
                 yaw *= -1;
             // pitch
-            pitch = PI_F / 2 - std::acos(m_z_initial.dot(left.normalized()));;
+            pitch = PI / 2 - std::acos(m_z_initial.dot(left.normalized()));;
             // roll
             y_after_2rot = m_z_initial.cross(projected);
             z_after_2rot = left.normalized().cross(y_after_2rot);
@@ -429,20 +429,15 @@ public:
 
     void addBaseAngleConstraintsSelection(ProjDyn::Scalar weight, bool right_side) {
         /***************************************************************************//**
-        * A brief history of Doxygen-style banner comments.
+        * This function has two mode:
+        * Default mode: adding constraints to pre-seleted vertices
+        * Custome mode: adding constraints to hand-selected vertices
         *
-        * This is a Doxygen-style C-style "banner" comment. It starts with a "normal"
-        * comment and is then converted to a "special" comment block near the end of
-        * the first line. It is written this way to be more "visible" to developers
-        * who are reading the source code.
-        * This style of commenting behaves poorly with clang-format.
-        *
-        * @param theory Even if there is only one possible unified theory. it is just a
-        *               set of rules and equations.
+        * @param weight, weight, weight of this constraint on global step
+        * @param right_side, right_side, whether or not this constraint is added on right side limb              
         ******************************************************************************/
         Surface_mesh* smesh = m_viewer->getMesh();
         static std::vector<ProjDyn::ConstraintPtr> angle_constraints;
-        // The weight is set to the edge length
         ProjDyn::Scalar w = 1;
         std::vector<ProjDyn::Scalar> theta_target;
         theta_target.push_back(0.0);    // never used

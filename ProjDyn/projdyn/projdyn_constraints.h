@@ -21,7 +21,7 @@ constexpr bool PROJDYN_PREVENT_BENDING_FLIPS = false;
 // The flipping prevention above is only enforced when the total mean curvature is
 // above the value below
 constexpr ProjDyn::Scalar PROJDYN_BENDING_FLIP_THRESHOLD = 1e-5;
-const float  PI_F=3.14159265358979f;
+const float  PI=3.14159265358979f;
 namespace ProjDyn {
     /* Constraints are grouped into ConstraintGroups, which can have a name, and an additional multiplier.
        This allows for easier accessing from outside. */
@@ -112,8 +112,11 @@ namespace ProjDyn {
         void setWeightMultiplier(Scalar mult) { m_weight_mult = mult; }
 
         virtual ConstraintPtr copy() = 0;
-
-        virtual void set_angle_target(int index, ProjDyn::Scalar angle){;}
+        /*begin of modification*/
+        virtual void set_angle_target(int index, ProjDyn::Scalar angle){
+            std::cerr << "this should never be called " << std::endl;
+        }
+        /*end of modification*/
     protected:
         /** Add the constraint to the matrix A that maps vertex positions to the linear part of the constraint projection.
             currentRow - the first row index of the constraint in the sparse matrix, i.e. the first row in which to add the entries
@@ -140,6 +143,32 @@ namespace ProjDyn {
 
     
 
+    /*begin of modification: core function*/
+    /***************************************************************************//**
+     * 
+     *
+     * This is the class which implement the core logic of this project:
+     * angle contraints for exact one limb.
+     * Based on the our spider model, we choose to model each limb as three parts: femur, tibia, 
+     * and tarsus. And for enabling flexible rotation, the joint between limb and cephalothorax is  
+     * modeled with 3 DoFs. The other joints is modeled with 1 DoF.
+     *
+     * The basics of bone constraints are of two types: each limb segments should not change its length
+     * and joint will not rotate in the direction if there is no rotation degree of freedom in that 
+     * direction.
+     *
+     * This class can realise both of these two type of constraints. 
+     * The basic idea is to choose four vertices each limb to build a simplest limb representation,
+     * transferring them into three vectors and finally restricting the length and angles of these 
+     * three vectors.
+     * After adding bending and triangle constraints with proper weights, the vertices on each
+     * limb will move together with these four selected vertices very realistically.
+     *
+     *
+     * Furthermore, all of the limb segments should lie in a same plane, because otherwise 
+     * the limb will distort in undesired direction, which is extremely unrealistic.
+     *
+     ******************************************************************************/
     class BaseAngleConstraint : public Constraint {
     public:
         BaseAngleConstraint(const std::vector<Index>& edge_vertices,std::vector<int> groupNum, Scalar weight,
@@ -148,8 +177,21 @@ namespace ProjDyn {
             :
             Constraint(edge_vertices, weight)
         {
-            // Make sure there are at most two vertices in the edge
-            assert(m_vertex_indices.size() == 3);
+            /***************************************************************************//**
+             * 
+             *This constructor record the rest pose angles as target angle(then the para theta_target is never used)
+             * and record rest pose length as target length
+             *
+             * @param edge_vertices, selected vertices as limb representation
+             * @param groupNum, an experiemntal idea, when using the average of a group of potins 
+             * to representing one joint, this param is used to identify the segmentation of different
+               joint in edge_vertices
+             * @param weight, weight of this constraint on global step
+             * @param positions, function that give (x, y, z) coordinate value to each vertex
+             * @param right_side, whether or not this constraint is added on right side limb
+             * @param theta_target, prescribed target for each rotation angle
+             * @param theta_scope, prescribed max angle deviation, then tolerant scope (theta_target +/- theta_scope)
+             ******************************************************************************/
             ProjDyn::Vector3 left, right, y_normal;
             m_theta_scope = theta_scope;
             m_groupNum = groupNum;
@@ -162,14 +204,10 @@ namespace ProjDyn {
             m_length.push_back(left.norm());
 
             extract3DoFanlges(m_yaw_target, m_pitch_target, m_roll_target);
-            //m_yaw_target -= 0.5;
-            //m_pitch_target -= 0.5;
-            //m_roll_target -= 0.5;
             std::cout << " yaw_target: " << m_yaw_target << " pitch_target: " << m_pitch_target << " roll_target: " << m_roll_target << "\n";
 
 
             for(int i = 0; i < theta_target.size()-3; i++){
- 
                 m_theta_target.push_back(extract1DoFanlges(i));
                 std::cout << i+4 << "th angle target: " << m_theta_target[i] << std::endl;
                 // Compute rest edge length
@@ -180,7 +218,16 @@ namespace ProjDyn {
        
 
         virtual void project(const Positions& positions, Positions& projection) override {
-            // Check for correct size of the projection auxiliary variable;
+            /***************************************************************************//**
+             * 
+             * This function project current vertices to target positions which satifying following conditions:
+             * if there is rotation in direction without rotation DoF, rotate(or project) vector back to allowed rotation plane.
+             * in direction with rotation DoF, if rotation angle exceed target +/- deviation, project 
+             * it back to max or min anlge.
+             * 
+             * @param positions, current (x,y,z) positions of each vertex
+             * @param projection, target positions
+             ******************************************************************************/
             assert(projection.rows() > m_constraint_id);
             ProjDyn::Vector3 y_after_2rot, z_after_2rot;
             ProjDyn::Vector3 x_inplane, y_inplane;
@@ -225,6 +272,13 @@ namespace ProjDyn {
         }
 
         virtual void set_angle_target(int index, Scalar angle) override{
+            /***************************************************************************//**
+             * It is mainly used to set target angle from slider on userface, or when simulation runs, 
+             * set it with respect to time dynamically.
+             *
+             * @param index, 0 - 5 encode 6 rotation angles of one limb
+             * @param angle, target angle
+             ******************************************************************************/
             assert(index >= 0 && index < 5);
             switch (index){
                 case 0:
@@ -242,9 +296,15 @@ namespace ProjDyn {
         }
 
          void buildGlobalCoordinate(bool right_side){
-            // build global coordinate for left and right body
-            m_x_initial << -1, 0, 0;
-            m_y_initial << 0, 0, 1;
+            /***************************************************************************//**
+             * It is mainly used to set target angle from slider on userface, or when simulation runs, 
+             * set it with respect to time dynamically.
+             *
+             * @param index, 0 - 5 encode 6 rotation angles of one limb
+             * @param angle, target angle
+             ******************************************************************************/
+            m_x_initial << -1, 0, 0;  // This coordinate is hard-coded, it can be rewritten to build
+            m_y_initial << 0, 0, 1;   // customed global coordinate when the object is not positioned exactly along axis.
             m_z_initial << 0, 1, 0;
             if(!right_side){
                 m_x_initial *= -1;
@@ -253,12 +313,33 @@ namespace ProjDyn {
         }
 
         void buildLocalCoordinate(ProjDyn::Vector3 &left, ProjDyn::Vector3 &right, ProjDyn::Vector3 &y_normal){
+            /***************************************************************************//**
+             *
+             * body...    ...tip
+             *       \   /
+             *   left \ / right
+             *         #
+             *       joint
+             *
+             * @param left,  vecotr that represents upper limb segment
+             * @param right, vetor that represents lower limb segment
+             * @param y_normal, normal vector of plance define by first three joint vertices,
+             *  this will be used to restrict all 1-DoF joints to rotate in same plane
+             ******************************************************************************/
             left = m_avgPosition[1] - m_avgPosition[0];
             right = m_avgPosition[2] - m_avgPosition[1];
             y_normal = right.cross(-left).normalized();
         }
 
         Scalar extract1DoFanlges(int i){
+            /***************************************************************************//**
+             * It is used to extract all joints angles expect first joint.
+             *
+             * First project right vector to shared plane, then measure its intersection
+             * angle with left vector
+             *
+             * @param i, encodes the i th 1-DoF angle
+             ******************************************************************************/
             ProjDyn::Vector3 z_normal, x_inplane, y_inplane, y_normal, left, _;
             buildLocalCoordinate(left, _, y_normal);
 
@@ -275,6 +356,13 @@ namespace ProjDyn {
         }
 
         void extract3DoFanlges(Scalar &yaw, Scalar &pitch, Scalar &roll){
+            /***************************************************************************//**
+             * It is used to extract first joint which is connected to body
+             *
+             * These three angles are represented by Euler angle in Tait–Bryan form
+             *
+             * @param yaw, pitch, roll, the angle to be extracted
+             ******************************************************************************/
             ProjDyn::Vector3 y_after_2rot, z_after_2rot;
             ProjDyn::Vector3 left, right, y_normal;
             buildLocalCoordinate(left, right, y_normal);
@@ -296,6 +384,16 @@ namespace ProjDyn {
         }
 
         ProjDyn::Vector3 ensureAroundTarget(Scalar theta, Scalar target, ProjDyn::Vector3 xAxis, ProjDyn::Vector3 yAxis, std::string str){
+            /***************************************************************************//**
+             * It is used to project current vector back to its closet position inside proper scope 
+             * Besides, the normal components outside local plannar coordinate is removed.
+             *
+             * @param theta, current angle
+             * @param target, target angle
+             * @param xAxis, x-axis of local planar coordinate
+             * @param yAxis, y-axis of local planar coordinate
+             * @param name, name of angle
+             ******************************************************************************/
             ProjDyn::Vector3 adjusted;
             Scalar theta_scope;
             if(str == "pitch" || str == "roll")
@@ -318,6 +416,13 @@ namespace ProjDyn {
         }
 
         void updateGroupAvgPosition(const Positions& positions){
+            /***************************************************************************//**
+             * It is used to update the average position for each joint 
+             * Now, it make little sense, because averaging more than one point will crash
+             * this constraint class. 
+             *
+             * @param position, current (x,y,z) positions of each vertex
+             ******************************************************************************/
             int num, lower;
             ProjDyn::Vector3 sum;
             for(int i=0; i<4; i++){
@@ -352,12 +457,12 @@ namespace ProjDyn {
         std::vector<int> m_groupNum;
         virtual std::vector<Triplet> getTriplets(Index currentRow) override {
             std::vector<Triplet> triplets;
-            // The current edge is computed as v_k - v_j, where j/k are the
-            // indices of the first/second vertex of this edge.
-            // In terms of a matrix row A_i and vertex x/y/z-positions v_x/y/z this means
-            // A_ij = -1, A_ik = 1 and A_il = 0 for l =/= j,k
-            // A_i v_x/y/z = e_x/y/z
-            // Thus:
+            /***************************************************************************//**
+             * By setting selection matrix, three vectors representing limb segments is 
+             * calculated implicitly.
+             *
+             * @param currentRow, begining row of this constraint in global linear system
+             ******************************************************************************/
             float num = 1 / m_groupNum[0];
             for(int i = 0; i < m_groupNum[0]; i++){
                 triplets.push_back(Triplet(currentRow, m_vertex_indices[i], -num));
@@ -380,6 +485,7 @@ namespace ProjDyn {
             return triplets;
         }
     };
+    /*end of modification: core function*/
 
     /**	
     As an example for a constraint, the following constraint implements a spring force for an edge of the mesh:

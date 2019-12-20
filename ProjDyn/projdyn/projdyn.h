@@ -63,6 +63,8 @@ namespace ProjDyn {
         // that the simulation can be run by using the step() function.
         // NOTE: the method setMesh() needs to be called before runnin this method,
         // otherwise, no mesh is available.
+
+        /*begin of modification*/
         bool initializeSystem() {
             // Check if vertices and triangles or tetrahedrons are available
             // Check if constraints are available
@@ -72,6 +74,7 @@ namespace ProjDyn {
             }
 
             // Get list of all current constraints from constraint group
+            // And record the index of anlge constraints
             m_constraints.clear();
             for (auto cg : m_constraintGroups) {
             	if(cg -> name == "Angle selection") m_angleCon_begin = m_constraints.size();
@@ -136,12 +139,20 @@ namespace ProjDyn {
             return recomputeLHS();
         }
 
+
         // Performs a step by applying the specified amount of local global iterations.
         // The system needs to be initialized and the lhs matrix up-to-date.
         // After these steps, the updated positions can be extracted via getPositions()
         // NOTE: for ShapeUp style shape editing, m_dynamicMode is set to false, and all
         // sections that require it to be true can be ignored.
+
         bool step(int num_iterations, int time) {
+            /***************************************************************************//**
+             * This function is modified to allow us to change target angle of angle constraints dynamically 
+             *
+             * @param num_iterations, the iteration numbers of each time step
+             * @param time, the current simulation time step, it is added by us to control target angles dependent of time
+             ******************************************************************************/
             // The system needs to be initialized before running the local-global alg.
             if (!m_system_init || !m_lhs_updated) return false;
 
@@ -174,14 +185,18 @@ namespace ProjDyn {
                 // Local step: compute constraint projections and put them in a vector
                 // --------------------------------------------------
 #pragma omp parallel for
+                //set the target position with sin signal dynamically
                 for (int j = 0; j < m_constraints.size(); j++) {
                 	if(j >= m_angleCon_begin && j < m_angleCon_end){
                 		std::shared_ptr<BaseAngleConstraint> angleCon = std::dynamic_pointer_cast<BaseAngleConstraint>(m_constraints[j]);
-                		/*std::cout << "change to " << angleCon << " degree" << endl;
-                	    angleCon -> set_angle_target(0, 0.25 * std::sin(2 * 3.1415 * 0.5 * time / 20.0) );
-                	    angleCon -> set_angle_target(1, 0.8 + 0.2 * std::sin(2 * 3.1415 * 0.5 * time / 20.0 + 2));	
-                		angleCon -> set_angle_target(3, 1.8 + 0.1 * std::sin(2 * 3.1415 * 0.5 * time / 20.0 + 2.5));
-   						*/
+                        // The parameters for a simple walking gate have been found empirically, changed a bit according to spider mesh
+                        float frequency = 0.5;
+                        float amplitude[3] = {0.25, 0.2, 0.1};
+                        float offset[3] = {0, 0.8, 1.8}; 
+                        float phase[3] = {0, 2, 2.5};
+                	    angleCon -> set_angle_target(0, offset[0] + amplitude[0] * std::sin(2 * 3.1415 * frequency * time / 20.0 + phase[0]));
+                	    angleCon -> set_angle_target(1, offset[1] + amplitude[1] * std::sin(2 * 3.1415 * frequency * time / 20.0 + phase[1]));	
+                		angleCon -> set_angle_target(3, offset[2] + amplitude[2] * std::sin(2 * 3.1415 * frequency * time / 20.0 + phase[2]));
                 	}
                     m_constraints[j]->project(m_positions, m_constraint_projections);
                 }
@@ -208,6 +223,7 @@ namespace ProjDyn {
 
             return true;
         }
+        /* end of modification */
 
 		// Provide a n by 3 scalar matrix containing x, y, z positions of each vertex per row
 		// and a m by 3 index matrix containing the indices of the vertices in each triangle

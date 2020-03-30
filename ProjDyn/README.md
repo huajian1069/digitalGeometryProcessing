@@ -63,16 +63,3 @@ To run the Projective Dynamics simulation, enter the build directory and run
     The shape is maintained by using either edge springs or triangle strain (or, once implemented, Iso 1-Ring constraints), which can be selected using the corresponding radio button. Note how much nicer the shape is maintained using the triangle strain + bending constraints, see the next slides for details.
     Additional constraints can be added to selected vertices by the buttons to the lower left. For now, only smoothing constraints are available.
     The currently used constraints are shown as groups in the window to the top right. There, the constraint weights can be changed using the sliders. Hovering over a slider, shows the vertices on which these constraints are defined.
-
-
-    Left:
-(1) 461 467 489 496
-(2) 345 354 364 384
-(3) 291 305 320 335
-(4) 249 261 278 287
-
-Right:
-(1) 198 212 226 238
-(2) 96 107 127 138
-(3) 48 60 74 91
-(4) 6 14 32 42
